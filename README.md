@@ -1,117 +1,80 @@
-﻿# README.md for Troop Manager App
+﻿# Troop Manager App
 
 ## Project Overview
 
-The Troop Manager App is a Flutter-based application designed to help manag[5D[K
-manage a scouting troop. This app serves as a merit badge project for a sco[3D[K
-scout and provides basic functionalities to manage scout data, events, calc[4D[K
-calculations, and profiles. The app is structured with a navigation hub tha[3D[K
-that directs users to different sections of the application.
+The Troop Manager App is a Flutter-based application that helps manage a scouting troop. Built as a programming merit badge project, it provides tools to track scout data, events, calculations, and profiles through a central navigation hub.
 
-## Breakdown of Active Layouts/Widgets
+A core feature of this project: **AI will be used to automatically build a calendar of events based on scout advancement reports and activity reports**. The app will analyze these reports to generate and schedule troop events intelligently.
+
+## Active Layouts / Widgets
 
 ### 1. TroopApp
 - **Type**: StatelessWidget
-- **Purpose**: This is the main entry point of the application. It uses the[3D[K
-the `MaterialApp` widget to set up the app's title, initial route, and defi[4D[K
-define a set of routes for navigation.
+- **Purpose**: Main entry point. Uses `MaterialApp` to configure the app title, initial route, and the named route table.
+- **Routes**:
+  - `/` → `NavigationHub`
+  - `/scoutList` → `ScoutListScreen`
+  - `/eventList` → `Placeholder` (temporary)
+  - `/calculation` → `Placeholder` (temporary)
+  - `/profile` → `Placeholder` (temporary)
 
 ### 2. NavigationHub
 - **Type**: StatelessWidget
-- **Purpose**: This widget serves as the central navigation hub of the app.[4D[K
-app. It displays an `AppBar` with the title "Navigation Hub" and a `Center`[8D[K
-`Center` widget containing a `Column` of navigation buttons.
-  
-- **Widgets Used**:
-  - `AppBar`: Displays the title "Navigation Hub".
-  - `Scaffold`: Provides a layout structure for the app.
-  - `Column`: Arranges the navigation buttons vertically.
-  - `ElevatedButton`: Buttons for navigating to different sections of the a[1D[K
-app.
-  - `Padding`: Adds padding around the buttons for better spacing.
+- **Purpose**: Central navigation screen. Shows an `AppBar` titled "Navigation Hub" and a centered column of buttons for each section.
+- **Widgets Used**: `Scaffold`, `AppBar`, `Column`, `ElevatedButton`, `Padding`
 
 ### 3. _navButton
-- **Type**: Widget
-- **Purpose**: A helper method within `NavigationHub` to create reusable na[2D[K
-navigation buttons.
-- **Parameters**:
-  - `context`: The build context.
-  - `label`: The text label for the button.
-  - `onPressed`: The callback function to handle button press events.
+- **Type**: Helper method on `NavigationHub`
+- **Purpose**: Builds a reusable navigation button.
+- **Parameters**: `context`, `label`, `onPressed`
+- **Widgets Used**: `Padding`, `ElevatedButton`
 
-- **Widgets Used**:
-  - `Padding`: Adds padding around the button.
-  - `ElevatedButton`: The button itself with a specified style.
+### 4. ScoutListScreen
+- **Type**: StatefulWidget
+- **Purpose**: Manages a dynamic list of scouts. A scout's name is entered in a text field, their rank is selected from a dropdown (Tenderfoot through Eagle), and an **Add Scout** button appends them to a scrollable `ListView`.
+- **Widgets Used**: `Scaffold`, `AppBar`, `TextField` (+ `TextEditingController`), `DropdownButtonFormField`, `ElevatedButton`, `ListView.builder`, `ListTile`
 
-## Current Dependencies
+## Dependencies
 
-The app currently relies on the following Flutter package:
+The app currently relies on the Flutter core package:
 
-- `flutter/material.dart`: The core Material Design library for Flutter, wh[2D[K
-which includes widgets, themes, and other components used in the app.
+- `flutter/material.dart` — the Material Design library providing widgets, themes, and components used throughout the app.
 
 ## Setup Instructions
 
-To set up and run the Troop Manager App, follow these steps:
+1. **Clone the Repository**
+   ```bash
+   git clone git@github.com:Henno1029/scouting_app.git
+   ```
 
-1. **Clone the Repository**:
-   - If the app is hosted in a Git repository, clone it to your local machi[5D[K
-machine using the following command:
-     ```bash
-     git clone <repository-url>
-     ```
+2. **Install Flutter**
+   - Download and install Flutter from the [official Flutter website](https://flutter.dev/docs/get-started/install).
 
-2. **Install Flutter**:
-   - Ensure that Flutter is installed on your system. You can download and [K
-install it from the [official Flutter website](https://flutter.dev/docs/get[37D[K
-website](https://flutter.dev/docs/get-started/install).
+3. **Get Dependencies**
+   ```bash
+   flutter pub get
+   ```
 
-3. **Get Dependencies**:
-   - Open a terminal and navigate to the project directory.
-   - Run the following command to install the necessary dependencies:
-     ```bash
-     flutter pub get
-     ```
+4. **Run the App**
+   ```bash
+   flutter run
+   ```
 
-4. **Run the App**:
-   - Use the following command to run the app on an emulator or connected d[1D[K
-device:
-     ```bash
-     flutter run
-     ```
+5. **Build the App** (Android release)
+   ```bash
+   flutter build apk
+   ```
 
-5. **Build the App**:
-   - To build the app for release, use the following command:
-     ```bash
-     flutter build apk
-     ```
+6. **Install on Device**
+   - Once the build completes, install the generated APK on your Android device.
 
-6. **Install on Device**:
-   - Once the build is complete, you can install the APK on your Android de[2D[K
-device.
+## Roadmap
 
-## Known Issues
-
-- The `/scoutList`, `/eventList`, `/calculation`, and `/profile` routes are[3D[K
-are currently using `Placeholder` widgets. These should be replaced with ac[2D[K
-actual implementations for the respective sections.
-
-## Future Enhancements
-
-- Implement the actual content for the `/scoutList`, `/eventList`, `/calcul[8D[K
-`/calculation`, and `/profile` routes.
-- Add more features such as data persistence, user authentication, and more[4D[K
-more detailed analytics.
-- Improve the UI/UX design to enhance user experience.
+- Implement the `/eventList`, `/calculation`, and `/profile` sections (currently placeholders).
+- Integrate AI to generate a troop event calendar from scout advancement reports and activity reports.
+- Add data persistence, user authentication, and richer analytics.
+- Continue refining the UI/UX.
 
 ## Contact
 
-For any inquiries or support, please contact the developer at [your-email@e[13D[K
-[your-email@example.com].
-
----
-
-This README.md provides a comprehensive overview of the Troop Manager App, [K
-detailing its structure, dependencies, setup instructions, and potential fu[2D[K
-future enhancements.
-
+For inquiries or support, please contact the developer.
