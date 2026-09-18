@@ -16,12 +16,15 @@ This document is the guideline for how the app should be built. Features are add
 
 ## Navigation Hub (Screen 5, Home)
 
-First screen shown on launch. Contains exactly four buttons:
+First screen shown on launch. Contains five buttons:
 
 - Scout Page → `/scoutList`
 - Event Page → `/eventList`
 - Calculation Page → `/calculation`
 - Profile Page → `/profile`
+- Upload Data → `/import`
+
+The app bar also has a badge icon opening Branding & Patrols (`/branding`).
 
 ## Scout List Screen (Screen 1)
 
@@ -79,6 +82,23 @@ Shows:
 
 No extra buttons.
 
+## CSV Import Screen (`/import`)
+
+Upload report CSVs and map their columns to app fields:
+
+- Supported import types: **Advancements** (Scoutbook Plus Quick Export preset), **Activities**, **Program Calendar**.
+- User picks a `.csv` file, sees detected columns, and remaps any column per field.
+- Required-field columns are enforced before saving.
+- Preview of the first 5 rows before import.
+- Imported records are stored in shared_preferences; the Program Calendar import feeds the calendar page.
+
+## Branding & Patrols Screen (`/branding`)
+
+- Upload/remove the troop logo (shown on the hub and in the year-calendar PDF).
+- Set the troop name.
+- Upload/remove a patrol emblem for each patrol; emblems show next to scouts in the scout list.
+- Register patrol names manually.
+
 ## Permission System
 
 Three permission levels only:
@@ -131,3 +151,5 @@ Use named routes:
 - `/eventList`
 - `/calculation`
 - `/profile`
+- `/import`
+- `/branding`

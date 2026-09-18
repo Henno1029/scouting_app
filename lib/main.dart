@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/branding_screen.dart';
+import 'screens/import_screen.dart';
 import 'scoutList_screen.dart';
 import 'scoutDetail_screen.dart';
 import 'services/branding_service.dart';
@@ -29,6 +30,7 @@ class TroopApp extends StatelessWidget {
         "/calculation": (context) => Placeholder(),   // temporary
         "/profile": (context) => Placeholder(),       // temporary
         "/branding": (context) => BrandingScreen(),
+        "/import": (context) => ImportScreen(),
       },
     );
   }
@@ -124,6 +126,7 @@ class _NavigationHubState extends State<NavigationHub> {
             _navButton(context, "Event Page", () => Navigator.pushNamed(context, "/eventList")),
             _navButton(context, "Calculation Page", () => Navigator.pushNamed(context, "/calculation")),
             _navButton(context, "Profile Page", () => Navigator.pushNamed(context, "/profile")),
+            _navButton(context, "Upload Data", () => Navigator.pushNamed(context, "/import")),
           ],
         ),
       ),
