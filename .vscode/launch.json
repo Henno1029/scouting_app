@@ -6,7 +6,7 @@
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
-      "args": ["-d", "chrome"]
+      "args": ["-d", "chrome", "--web-port", "8080"]
     }
   ]
 }
