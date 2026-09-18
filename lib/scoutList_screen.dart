@@ -38,6 +38,7 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                 });
               },
               items: <String>[
+                'Scout',
                 'Tenderfoot',
                 'Second Class',
                 'First Class',
