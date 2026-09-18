@@ -26,3 +26,13 @@ You are a specialized Flutter/Dart agent operating on a local consumer PC via Ol
 
 
 
+\## Local Model Processing (Privacy Rule)
+
+\- All scout data analysis and processing — program planning, roster insights, and any work touching scout PII (names, BSA member IDs, advancement records) — MUST be done with the local Ollama model.
+
+\- NEVER send scout data to cloud-hosted models or external APIs.
+
+\- Keep scout data in the app's local storage (shared_preferences / browser localStorage); do not move it into chat context or logs unnecessarily.
+
+
+
