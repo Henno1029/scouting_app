@@ -15,6 +15,7 @@ class BrandingScreen extends StatefulWidget {
 class _BrandingScreenState extends State<BrandingScreen> {
   final TextEditingController _patrolController = TextEditingController();
   final TextEditingController _troopNameController = TextEditingController();
+  final TextEditingController _troopWebsiteController = TextEditingController();
   TroopLogo? _troopLogo;
   Map<String, PatrolEmblem> _emblems = {};
   List<String> _patrols = [];
@@ -30,6 +31,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
   void dispose() {
     _patrolController.dispose();
     _troopNameController.dispose();
+    _troopWebsiteController.dispose();
     super.dispose();
   }
 
@@ -38,12 +40,14 @@ class _BrandingScreenState extends State<BrandingScreen> {
     final emblems = await BrandingService.loadAllPatrolEmblems();
     final patrols = await BrandingService.uniquePatrols();
     final troopName = await BrandingService.loadTroopName() ?? '';
+    final troopWebsite = await BrandingService.loadTroopWebsite() ?? '';
     if (!mounted) return;
     setState(() {
       _troopLogo = logo;
       _emblems = emblems;
       _patrols = patrols;
       _troopNameController.text = troopName;
+      _troopWebsiteController.text = troopWebsite;
       _loading = false;
     });
   }
@@ -238,6 +242,38 @@ class _BrandingScreenState extends State<BrandingScreen> {
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Troop name saved')),
+                                );
+                              },
+                              child: const Text('Save'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _troopWebsiteController,
+                                keyboardType: TextInputType.url,
+                                decoration: const InputDecoration(
+                                  labelText: 'Troop website URL',
+                                  hintText: 'https://example.org',
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () async {
+                                await BrandingService.saveTroopWebsite(
+                                    _troopWebsiteController.text);
+                                _troopWebsiteController.text =
+                                    await BrandingService.loadTroopWebsite() ??
+                                        '';
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Troop website saved')),
                                 );
                               },
                               child: const Text('Save'),

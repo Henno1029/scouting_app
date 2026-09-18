@@ -42,6 +42,7 @@ class PatrolEmblem {
 class BrandingService {
   static const _troopLogoKey = 'branding_troop_logo';
   static const _troopNameKey = 'branding_troop_name';
+  static const _troopWebsiteKey = 'branding_troop_website';
   static const _patrolEmblemsKey = 'branding_patrol_emblems';
   static const _patrolNamesKey = 'branding_patrol_names';
 
@@ -58,6 +59,30 @@ class BrandingService {
   static Future<String?> loadTroopName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_troopNameKey);
+  }
+
+  static String? normalizeWebsite(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return null;
+    if (RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed)) {
+      return trimmed;
+    }
+    return 'https://$trimmed';
+  }
+
+  static Future<void> saveTroopWebsite(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = normalizeWebsite(url);
+    if (normalized == null) {
+      await prefs.remove(_troopWebsiteKey);
+      return;
+    }
+    await prefs.setString(_troopWebsiteKey, normalized);
+  }
+
+  static Future<String?> loadTroopWebsite() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_troopWebsiteKey);
   }
 
   static Future<void> saveTroopLogo({

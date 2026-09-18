@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'screens/branding_screen.dart';
 import 'screens/event_list_screen.dart';
@@ -44,6 +45,7 @@ class NavigationHub extends StatefulWidget {
 class _NavigationHubState extends State<NavigationHub> {
   TroopLogo? _troopLogo;
   String? _troopName;
+  String? _troopWebsite;
 
   @override
   void initState() {
@@ -54,11 +56,27 @@ class _NavigationHubState extends State<NavigationHub> {
   Future<void> _loadBranding() async {
     final logo = await BrandingService.loadTroopLogo();
     final name = await BrandingService.loadTroopName();
+    final website = await BrandingService.loadTroopWebsite();
     if (!mounted) return;
     setState(() {
       _troopLogo = logo;
       _troopName = name;
+      _troopWebsite = website;
     });
+  }
+
+  Future<void> _openTroopWebsite() async {
+    final website = _troopWebsite;
+    if (website == null || website.isEmpty) return;
+    final uri = Uri.tryParse(website);
+    if (uri == null) return;
+    final launched =
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the troop website.')),
+      );
+    }
   }
 
   Widget _logo() {
@@ -143,6 +161,19 @@ class _NavigationHubState extends State<NavigationHub> {
             _navButton(context, "Event Page", () => Navigator.pushNamed(context, "/eventList")),
             _navButton(context, "Calculation Page", () => Navigator.pushNamed(context, "/calculation")),
             _navButton(context, "Upload Data", () => Navigator.pushNamed(context, "/import")),
+            if (_troopWebsite != null && _troopWebsite!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _openTroopWebsite,
+                icon: const Icon(Icons.public),
+                label: const Text('Troop Website'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(200, 50),
+                  foregroundColor: AppTheme.scoutingBlue,
+                  side: const BorderSide(color: AppTheme.scoutingBlue),
+                ),
+              ),
+            ],
           ],
         ),
       ),
