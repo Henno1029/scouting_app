@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'services/branding_service.dart';
+import 'theme/app_theme.dart';
+
 class ScoutListScreen extends StatefulWidget {
   @override
   _ScoutListScreenState createState() => _ScoutListScreenState();
@@ -13,6 +16,7 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
   final TextEditingController _patrolController = TextEditingController();
   String _selectedRank = 'Tenderfoot';
   List<Map<String, String>> _scouts = [];
+  Map<String, PatrolEmblem> _emblems = {};
 
   @override
   void initState() {
@@ -22,14 +26,16 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
 
   Future<void> _loadScouts() async {
     final prefs = await SharedPreferences.getInstance();
+    final emblems = await BrandingService.loadAllPatrolEmblems();
     final json = prefs.getString('scouts');
-    if (json != null) {
-      setState(() {
+    setState(() {
+      _emblems = emblems;
+      if (json != null) {
         _scouts = (jsonDecode(json) as List)
             .map((e) => Map<String, String>.from(e as Map))
             .toList();
-      });
-    }
+      }
+    });
   }
 
   Future<void> _saveScouts() async {
@@ -56,6 +62,27 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
       _scouts.removeAt(index);
     });
     _saveScouts();
+  }
+
+  Widget _patrolEmblem(String patrol) {
+    final fallback = CircleAvatar(
+      backgroundColor: AppTheme.scoutingTan,
+      child: const Icon(Icons.groups, size: 22, color: AppTheme.scoutingBlue),
+    );
+    final emblem = _emblems[patrol];
+    if (emblem == null || emblem.dataBase64.isEmpty) return fallback;
+    return CircleAvatar(
+      backgroundColor: Colors.white,
+      child: ClipOval(
+        child: Image.memory(
+          emblem.bytes,
+          fit: BoxFit.cover,
+          width: 40,
+          height: 40,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      ),
+    );
   }
 
   @override
@@ -109,6 +136,7 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                 itemCount: _scouts.length,
                 itemBuilder: (context, index) {
                   return ListTile(
+                    leading: _patrolEmblem(_scouts[index]['patrol'] ?? ''),
                     title: Text(_scouts[index]['name']!),
                     subtitle: Text(_scouts[index]['patrol']!.isEmpty
                         ? _scouts[index]['rank']!

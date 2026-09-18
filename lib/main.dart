@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'screens/branding_screen.dart';
 import 'scoutList_screen.dart';
 import 'scoutDetail_screen.dart';
+import 'services/branding_service.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(TroopApp());
@@ -12,6 +15,7 @@ class TroopApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: "Troop Manager",
+      theme: AppTheme.build(),
       initialRoute: "/",
       routes: {
         "/": (context) => NavigationHub(),
@@ -24,20 +28,98 @@ class TroopApp extends StatelessWidget {
         "/eventList": (context) => Placeholder(),     // temporary
         "/calculation": (context) => Placeholder(),   // temporary
         "/profile": (context) => Placeholder(),       // temporary
+        "/branding": (context) => BrandingScreen(),
       },
     );
   }
 }
 
-class NavigationHub extends StatelessWidget {
+class NavigationHub extends StatefulWidget {
+  @override
+  _NavigationHubState createState() => _NavigationHubState();
+}
+
+class _NavigationHubState extends State<NavigationHub> {
+  TroopLogo? _troopLogo;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLogo();
+  }
+
+  Future<void> _loadLogo() async {
+    final logo = await BrandingService.loadTroopLogo();
+    if (!mounted) return;
+    setState(() {
+      _troopLogo = logo;
+    });
+  }
+
+  Widget _logo() {
+    if (_troopLogo == null) {
+      return const CircleAvatar(
+        radius: 40,
+        backgroundColor: AppTheme.scoutingTan,
+        child: Icon(Icons.face_3, size: 44, color: AppTheme.scoutingBlue),
+      );
+    }
+    return CircleAvatar(
+      radius: 40,
+      backgroundColor: Colors.white,
+      child: ClipOval(
+        child: Image.memory(
+          _troopLogo!.bytes,
+          fit: BoxFit.cover,
+          width: 80,
+          height: 80,
+          errorBuilder: (_, __, ___) => const Icon(
+            Icons.face_3,
+            size: 44,
+            color: AppTheme.scoutingBlue,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Navigation Hub")),
+      appBar: AppBar(
+        title: const Text("Navigation Hub"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.badge_outlined),
+            tooltip: 'Branding & Patrols',
+            onPressed: () {
+              Navigator.pushNamed(context, '/branding')
+                  .then((_) => _loadLogo());
+            },
+          ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            _logo(),
+            const SizedBox(height: 12),
+            Text(
+              "Troop Manager",
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppTheme.scoutingDarkBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const Text(
+              "Scouting America",
+              style: TextStyle(
+                color: AppTheme.scoutingWarmGray,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 24),
             _navButton(context, "Scout Page", () => Navigator.pushNamed(context, "/scoutList")),
             _navButton(context, "Event Page", () => Navigator.pushNamed(context, "/eventList")),
             _navButton(context, "Calculation Page", () => Navigator.pushNamed(context, "/calculation")),
