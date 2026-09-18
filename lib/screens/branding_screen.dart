@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../services/branding_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/image_utils.dart';
 
 class BrandingScreen extends StatefulWidget {
   @override
@@ -13,6 +14,7 @@ class BrandingScreen extends StatefulWidget {
 
 class _BrandingScreenState extends State<BrandingScreen> {
   final TextEditingController _patrolController = TextEditingController();
+  final TextEditingController _troopNameController = TextEditingController();
   TroopLogo? _troopLogo;
   Map<String, PatrolEmblem> _emblems = {};
   List<String> _patrols = [];
@@ -27,6 +29,7 @@ class _BrandingScreenState extends State<BrandingScreen> {
   @override
   void dispose() {
     _patrolController.dispose();
+    _troopNameController.dispose();
     super.dispose();
   }
 
@@ -34,36 +37,58 @@ class _BrandingScreenState extends State<BrandingScreen> {
     final logo = await BrandingService.loadTroopLogo();
     final emblems = await BrandingService.loadAllPatrolEmblems();
     final patrols = await BrandingService.uniquePatrols();
+    final troopName = await BrandingService.loadTroopName() ?? '';
     if (!mounted) return;
     setState(() {
       _troopLogo = logo;
       _emblems = emblems;
       _patrols = patrols;
+      _troopNameController.text = troopName;
       _loading = false;
     });
   }
 
   Future<Uint8List?> _pickImageBytes(String label) async {
-    final file = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
-      dialogTitle: label,
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+        dialogTitle: label,
+      );
+      if (file == null) return null;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) {
+        _showMessage('Could not read the selected file.');
+        return null;
+      }
+      return await ImageUtils.downscale(bytes);
+    } catch (error) {
+      _showMessage('Upload failed: $error');
+      return null;
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
-    if (file == null) return null;
-    return file.readAsBytes();
   }
 
   Future<void> _uploadTroopLogo() async {
     final bytes = await _pickImageBytes('Select troop logo');
     if (bytes == null) return;
     await BrandingService.saveTroopLogo(name: 'troop_logo', bytes: bytes);
+    _showMessage('Troop logo uploaded');
     _refresh();
   }
 
   Future<void> _uploadPatrolEmblem(String patrol) async {
     final bytes = await _pickImageBytes('Select $patrol emblem');
     if (bytes == null) return;
-    await BrandingService.savePatrolEmblem(patrol: patrol, name: '${patrol}_emblem', bytes: bytes);
+    await BrandingService.savePatrolEmblem(
+        patrol: patrol, name: '${patrol}_emblem', bytes: bytes);
+    _showMessage('$patrol emblem uploaded');
     _refresh();
   }
 
@@ -164,6 +189,32 @@ class _BrandingScreenState extends State<BrandingScreen> {
                                   ),
                                 ],
                               ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _troopNameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Troop name',
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () async {
+                                await BrandingService.saveTroopName(
+                                    _troopNameController.text);
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Troop name saved')),
+                                );
+                              },
+                              child: const Text('Save'),
                             ),
                           ],
                         ),

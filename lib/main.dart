@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/branding_screen.dart';
+import 'screens/event_list_screen.dart';
 import 'screens/import_screen.dart';
 import 'scoutList_screen.dart';
 import 'scoutDetail_screen.dart';
@@ -26,7 +27,7 @@ class TroopApp extends StatelessWidget {
               as Map<String, String>;
           return ScoutDetailScreen(scout: scout);
         },
-        "/eventList": (context) => Placeholder(),     // temporary
+        "/eventList": (context) => EventListScreen(),
         "/calculation": (context) => Placeholder(),   // temporary
         "/profile": (context) => Placeholder(),       // temporary
         "/branding": (context) => BrandingScreen(),
@@ -43,18 +44,21 @@ class NavigationHub extends StatefulWidget {
 
 class _NavigationHubState extends State<NavigationHub> {
   TroopLogo? _troopLogo;
+  String? _troopName;
 
   @override
   void initState() {
     super.initState();
-    _loadLogo();
+    _loadBranding();
   }
 
-  Future<void> _loadLogo() async {
+  Future<void> _loadBranding() async {
     final logo = await BrandingService.loadTroopLogo();
+    final name = await BrandingService.loadTroopName();
     if (!mounted) return;
     setState(() {
       _troopLogo = logo;
+      _troopName = name;
     });
   }
 
@@ -96,7 +100,7 @@ class _NavigationHubState extends State<NavigationHub> {
             tooltip: 'Branding & Patrols',
             onPressed: () {
               Navigator.pushNamed(context, '/branding')
-                  .then((_) => _loadLogo());
+                  .then((_) => _loadBranding());
             },
           ),
         ],
@@ -108,7 +112,9 @@ class _NavigationHubState extends State<NavigationHub> {
             _logo(),
             const SizedBox(height: 12),
             Text(
-              "Troop Manager",
+              _troopName == null || _troopName!.isEmpty
+                  ? "Troop Manager"
+                  : _troopName!,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppTheme.scoutingDarkBlue,
                     fontWeight: FontWeight.bold,

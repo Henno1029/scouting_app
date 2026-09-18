@@ -8,7 +8,7 @@ This document is the guideline for how the app should be built. Features are add
 |---|--------|-------|
 | 1 | Scout List Screen | `/scoutList` |
 | 2 | Scout Detail Screen | `/scoutDetail` |
-| 3 | Event List Screen (no meetings shown) | `/eventList` |
+| 3 | Event Calendar Screen (month + year views) | `/eventList` |
 | 4 | Event Detail Screen | `/eventDetail` |
 | 5 | Navigation Hub Screen (home) | `/` |
 | 6 | Calculation Page | `/calculation` |
@@ -46,9 +46,24 @@ Shows:
 - Advancement info
 - Edit button — **only visible if user has permission**
 
-## Event List Screen (Screen 3)
+## Event Calendar Screen (Screen 3)
 
-Shows all events **except meetings**. Tapping an event opens Event Detail.
+Full calendar page with month and year views:
+
+- **Month view** — weekday header, tappable day cells showing event chips, and a list of that month's events below.
+- **Year view** — 12 mini-months; tapping a month jumps to that month's view.
+- **Add event** dialog (title, type, date picker, location, notes).
+- **Hide/show meetings** filter toggle.
+- App bar actions: **export year PDF** and **add event**.
+- Tap an event or day to see details and delete.
+- Events come from manual entries plus the CSV calendar and Program Grid imports.
+
+## Year Calendar PDF Export
+
+- One-page Letter-landscape 12-month grid (like a school wall calendar), Scouting America themed.
+- Header shows troop name (from Branding), optional troop logo, and the year.
+- Days with events are highlighted in red; weekday letters shown.
+- Exported via the browser print dialog (choose "Save as PDF") using the `printing` + `pdf` packages.
 
 ## Event Detail Screen (Screen 4)
 
@@ -86,8 +101,8 @@ No extra buttons.
 
 Upload report CSVs and map their columns to app fields:
 
-- Supported import types: **Advancements** (Scoutbook Plus Quick Export preset), **Activities**, **Program Calendar**.
-- User picks a `.csv` file, sees detected columns, and remaps any column per field.
+- Supported import types: **Advancements** (Scoutbook Plus Quick Export preset), **Activities**, **Program Calendar**, **Program Grid** (troop annual planning sheet auto-parsed into meetings/campouts/PLC/committee/roundtable/OA events).
+- User picks a `.csv`/`.tsv` file, sees detected columns, and remaps any column per field.
 - Required-field columns are enforced before saving.
 - Preview of the first 5 rows before import.
 - Imported records are stored in shared_preferences; the Program Calendar import feeds the calendar page.

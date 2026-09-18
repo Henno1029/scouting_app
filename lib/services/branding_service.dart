@@ -41,8 +41,24 @@ class PatrolEmblem {
 
 class BrandingService {
   static const _troopLogoKey = 'branding_troop_logo';
+  static const _troopNameKey = 'branding_troop_name';
   static const _patrolEmblemsKey = 'branding_patrol_emblems';
   static const _patrolNamesKey = 'branding_patrol_names';
+
+  static Future<void> saveTroopName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      await prefs.remove(_troopNameKey);
+      return;
+    }
+    await prefs.setString(_troopNameKey, trimmed);
+  }
+
+  static Future<String?> loadTroopName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_troopNameKey);
+  }
 
   static Future<void> saveTroopLogo({
     required String name,
