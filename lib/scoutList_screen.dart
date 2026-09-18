@@ -51,6 +51,13 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
     _saveScouts();
   }
 
+  void _deleteScout(int index) {
+    setState(() {
+      _scouts.removeAt(index);
+    });
+    _saveScouts();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,6 +113,15 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                     subtitle: Text(_scouts[index]['patrol']!.isEmpty
                         ? _scouts[index]['rank']!
                         : '${_scouts[index]['rank']} • ${_scouts[index]['patrol']}'),
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      '/scoutDetail',
+                      arguments: _scouts[index],
+                    ),
+                    trailing: IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: () => _deleteScout(index),
+                    ),
                   );
                 },
               ),

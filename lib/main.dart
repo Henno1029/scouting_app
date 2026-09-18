@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'scoutList_screen.dart';
+import 'scoutDetail_screen.dart';
 
 void main() {
   runApp(TroopApp());
@@ -15,6 +16,11 @@ class TroopApp extends StatelessWidget {
       routes: {
         "/": (context) => NavigationHub(),
         "/scoutList": (context) => ScoutListScreen(),
+        "/scoutDetail": (context) {
+          final scout = ModalRoute.of(context)!.settings.arguments
+              as Map<String, String>;
+          return ScoutDetailScreen(scout: scout);
+        },
         "/eventList": (context) => Placeholder(),     // temporary
         "/calculation": (context) => Placeholder(),   // temporary
         "/profile": (context) => Placeholder(),       // temporary
