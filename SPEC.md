@@ -2,7 +2,7 @@
 
 This document is the guideline for how the app should be built. Features are added incrementally against this spec.
 
-## App Structure (7 Screens)
+## App Structure (6 Screens)
 
 | # | Screen | Route |
 |---|--------|-------|
@@ -12,16 +12,14 @@ This document is the guideline for how the app should be built. Features are add
 | 4 | Event Detail Screen | `/eventDetail` |
 | 5 | Navigation Hub Screen (home) | `/` |
 | 6 | Calculation Page | `/calculation` |
-| 7 | Profile Page | `/profile` |
 
 ## Navigation Hub (Screen 5, Home)
 
-First screen shown on launch. Contains five buttons:
+First screen shown on launch. Contains four buttons:
 
 - Scout Page → `/scoutList`
 - Event Page → `/eventList`
 - Calculation Page → `/calculation`
-- Profile Page → `/profile`
 - Upload Data → `/import`
 
 The app bar also has a badge icon opening Branding & Patrols (`/branding`).
@@ -75,7 +73,7 @@ Shows:
 - Activities
 - Edit button — **only visible if user has permission**
 
-## Calculation Page (Screen 6)
+## Calculation Page (Screen 5)
 
 User selects:
 
@@ -85,17 +83,6 @@ User selects:
 App outputs:
 
 - Which requirements each scout can complete at that event
-
-## Profile Page (Screen 7)
-
-Shows:
-
-- User name
-- User permission level
-- Field to enter special password
-- Button to change their own permission level
-
-No extra buttons.
 
 ## CSV Import Screen (`/import`)
 
@@ -129,7 +116,6 @@ Rules:
 - Admin can edit everything and change other users' permissions.
 - Special password unlocks editing AND allows the user to change their own permission level.
 - Only Admins can change OTHER users' permissions.
-- Profile Page is where users change their own permission.
 - Do NOT add any other permission levels.
 
 ## Data Models
@@ -165,6 +151,5 @@ Use named routes:
 - `/scoutList`
 - `/eventList`
 - `/calculation`
-- `/profile`
 - `/import`
 - `/branding`

@@ -29,7 +29,6 @@ class TroopApp extends StatelessWidget {
         },
         "/eventList": (context) => EventListScreen(),
         "/calculation": (context) => Placeholder(),   // temporary
-        "/profile": (context) => Placeholder(),       // temporary
         "/branding": (context) => BrandingScreen(),
         "/import": (context) => ImportScreen(),
       },
@@ -131,7 +130,6 @@ class _NavigationHubState extends State<NavigationHub> {
             _navButton(context, "Scout Page", () => Navigator.pushNamed(context, "/scoutList")),
             _navButton(context, "Event Page", () => Navigator.pushNamed(context, "/eventList")),
             _navButton(context, "Calculation Page", () => Navigator.pushNamed(context, "/calculation")),
-            _navButton(context, "Profile Page", () => Navigator.pushNamed(context, "/profile")),
             _navButton(context, "Upload Data", () => Navigator.pushNamed(context, "/import")),
           ],
         ),
