@@ -63,26 +63,38 @@ class _NavigationHubState extends State<NavigationHub> {
 
   Widget _logo() {
     if (_troopLogo == null) {
-      return const CircleAvatar(
-        radius: 40,
-        backgroundColor: AppTheme.scoutingTan,
-        child: Icon(Icons.face_3, size: 44, color: AppTheme.scoutingBlue),
+      return Container(
+        width: 104,
+        height: 104,
+        decoration: BoxDecoration(
+          color: AppTheme.scoutingTan,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Icon(
+          Icons.face_3,
+          size: 56,
+          color: AppTheme.scoutingBlue,
+        ),
       );
     }
-    return CircleAvatar(
-      radius: 40,
-      backgroundColor: Colors.white,
-      child: ClipOval(
-        child: Image.memory(
-          _troopLogo!.bytes,
-          fit: BoxFit.cover,
-          width: 80,
-          height: 80,
-          errorBuilder: (_, __, ___) => const Icon(
-            Icons.face_3,
-            size: 44,
-            color: AppTheme.scoutingBlue,
-          ),
+    return Container(
+      width: 104,
+      height: 104,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.all(10),
+      child: Image.memory(
+        _troopLogo!.bytes,
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.face_3,
+          size: 56,
+          color: AppTheme.scoutingBlue,
         ),
       ),
     );

@@ -98,25 +98,50 @@ class _BrandingScreenState extends State<BrandingScreen> {
     _refresh();
   }
 
-  Widget _emblem(PatrolEmblem? emblem, {double size = 48}) {
-    final fallback = CircleAvatar(
-      radius: size / 2,
-      backgroundColor: AppTheme.scoutingTan,
-      child: Icon(Icons.groups, size: size * 0.5, color: AppTheme.scoutingBlue),
-    );
+  Widget _emblem(PatrolEmblem? emblem, {double size = 48, bool circle = true}) {
+    final fallback = circle
+        ? CircleAvatar(
+            radius: size / 2,
+            backgroundColor: AppTheme.scoutingTan,
+            child: Icon(Icons.groups, size: size * 0.5, color: AppTheme.scoutingBlue),
+          )
+        : Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: AppTheme.scoutingTan,
+              borderRadius: BorderRadius.circular(size * 0.18),
+            ),
+            child: Icon(Icons.face_3,
+                size: size * 0.5, color: AppTheme.scoutingBlue),
+          );
     if (emblem == null || emblem.dataBase64.isEmpty) return fallback;
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: Colors.white,
-      child: ClipOval(
-        child: Image.memory(
-          emblem.bytes,
-          fit: BoxFit.cover,
-          width: size,
-          height: size,
-          errorBuilder: (_, __, ___) => fallback,
-        ),
+    final content = Padding(
+      padding: EdgeInsets.all(size * 0.1),
+      child: Image.memory(
+        emblem.bytes,
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => fallback,
       ),
+    );
+    if (circle) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: Colors.white,
+        child: content,
+      );
+    }
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(size * 0.18),
+      ),
+      child: content,
     );
   }
 
@@ -150,7 +175,8 @@ class _BrandingScreenState extends State<BrandingScreen> {
                               _troopLogo == null
                                   ? null
                                   : PatrolEmblem(_troopLogo!.name, _troopLogo!.dataBase64),
-                              size: 72,
+                              size: 88,
+                              circle: false,
                             ),
                             const SizedBox(width: 16),
                             Expanded(

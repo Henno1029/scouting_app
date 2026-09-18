@@ -151,9 +151,20 @@ class CsvImportService {
     final decoded = csv.decode(content);
     if (decoded.isEmpty) return CsvTable.empty;
 
-    final headers = decoded.first
-        .map((field) => field.toString().trim().replaceAll('\uFEFF', ''))
-        .toList();
+    final headers = <String>[];
+    final used = <String>{};
+    for (final raw in decoded.first) {
+      var name = raw.toString().trim().replaceAll('\uFEFF', '');
+      if (name.isEmpty) name = 'Column ${headers.length + 1}';
+      var candidate = name;
+      var n = 2;
+      while (used.contains(candidate)) {
+        candidate = '$name ($n)';
+        n++;
+      }
+      used.add(candidate);
+      headers.add(candidate);
+    }
 
     final rows = <List<String>>[];
     for (final raw in decoded.skip(1)) {
@@ -211,18 +222,38 @@ class CsvImportService {
         .toList();
   }
 
-  static Future<int> save(ImportTarget target, String fileName, List<Map<String, String>> records) async {
+  static Future<({int added, int total})> save(
+      ImportTarget target, String fileName, List<Map<String, String>> records) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(target.storageKey, jsonEncode(records));
+    final existingRaw = await load(target.storageKey);
+    final existing =
+        existingRaw.map((m) => Map<String, String>.from(m)).toList();
+    final seen = <String>{for (final r in existing) _signature(r)};
+    var added = 0;
+    for (final record in records) {
+      if (seen.add(_signature(record))) {
+        existing.add(record);
+        added++;
+      }
+    }
+    await prefs.setString(target.storageKey, jsonEncode(existing));
     await prefs.setString(
       '${target.storageKey}_meta',
       jsonEncode({
         'fileName': fileName,
         'importedAt': DateTime.now().toIso8601String(),
-        'count': records.length,
+        'count': existing.length,
+        'added': added,
       }),
     );
-    return records.length;
+    return (added: added, total: existing.length);
+  }
+
+  static String _signature(Map<String, String> record) {
+    final keys = record.keys.toList()..sort();
+    return keys
+        .map((k) => '${k.toLowerCase()}=${record[k].toString().trim().toLowerCase()}')
+        .join('|');
   }
 
   static Future<List<Map<String, dynamic>>> load(String storageKey) async {

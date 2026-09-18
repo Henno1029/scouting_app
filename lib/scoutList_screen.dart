@@ -12,10 +12,15 @@ class ScoutListScreen extends StatefulWidget {
 }
 
 class _ScoutListScreenState extends State<ScoutListScreen> {
+  static const String _newPatrolValue = '__new__';
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _patrolController = TextEditingController();
   String _selectedRank = 'Tenderfoot';
+  String _selectedPatrol = '';
+  bool _addingNewPatrol = false;
   List<Map<String, String>> _scouts = [];
+  List<String> _patrols = [];
   Map<String, PatrolEmblem> _emblems = {};
 
   @override
@@ -28,13 +33,17 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
     final prefs = await SharedPreferences.getInstance();
     final emblems = await BrandingService.loadAllPatrolEmblems();
     final json = prefs.getString('scouts');
+    var scouts = <Map<String, String>>[];
+    if (json != null) {
+      scouts = (jsonDecode(json) as List)
+          .map((e) => Map<String, String>.from(e as Map))
+          .toList();
+    }
+    final patrols = await BrandingService.uniquePatrols();
     setState(() {
       _emblems = emblems;
-      if (json != null) {
-        _scouts = (jsonDecode(json) as List)
-            .map((e) => Map<String, String>.from(e as Map))
-            .toList();
-      }
+      _scouts = scouts;
+      _patrols = patrols;
     });
   }
 
@@ -45,16 +54,31 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
 
   void _addScout() {
     if (_nameController.text.trim().isEmpty) return;
+    final patrol = _addingNewPatrol
+        ? _patrolController.text.trim()
+        : _selectedPatrol;
     setState(() {
       _scouts.add({
         'name': _nameController.text.trim(),
         'rank': _selectedRank,
-        'patrol': _patrolController.text.trim(),
+        'patrol': patrol,
       });
       _nameController.clear();
       _patrolController.clear();
+      _selectedPatrol = '';
+      _addingNewPatrol = false;
     });
     _saveScouts();
+    if (patrol.isNotEmpty) {
+      BrandingService.addPatrolName(patrol);
+    }
+    _reloadPatrols();
+  }
+
+  Future<void> _reloadPatrols() async {
+    final patrols = await BrandingService.uniquePatrols();
+    if (!mounted) return;
+    setState(() => _patrols = patrols);
   }
 
   void _deleteScout(int index) {
@@ -119,10 +143,37 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                 );
               }).toList(),
             ),
-            TextField(
-              controller: _patrolController,
-              decoration: InputDecoration(labelText: 'Patrol Name'),
+            DropdownButtonFormField<String>(
+              value: _addingNewPatrol ? _newPatrolValue : _selectedPatrol,
+              onChanged: (String? newValue) {
+                setState(() {
+                  _addingNewPatrol = newValue == _newPatrolValue;
+                  _selectedPatrol = _addingNewPatrol ? '' : (newValue ?? '');
+                });
+              },
+              decoration: const InputDecoration(labelText: 'Patrol Name'),
+              items: <DropdownMenuItem<String>>[
+                const DropdownMenuItem<String>(
+                  value: '',
+                  child: Text('No patrol'),
+                ),
+                ..._patrols.map((patrol) => DropdownMenuItem<String>(
+                      value: patrol,
+                      child: Text(patrol),
+                    )),
+                const DropdownMenuItem<String>(
+                  value: _newPatrolValue,
+                  child: Text('New patrol…'),
+                ),
+              ],
             ),
+            if (_addingNewPatrol) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _patrolController,
+                decoration: const InputDecoration(labelText: 'New Patrol Name'),
+              ),
+            ],
             ElevatedButton(
               onPressed: _addScout,
               child: Text('Add Scout'),
@@ -130,11 +181,61 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                 minimumSize: Size(200, 50),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Scouts',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.scoutingDarkBlue,
+                      ),
+                ),
+                Text(
+                  '${_scouts.length} ${_scouts.length == 1 ? 'scout' : 'scouts'}',
+                  style: const TextStyle(color: AppTheme.scoutingWarmGray),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             Expanded(
-              child: ListView.builder(
-                itemCount: _scouts.length,
-                itemBuilder: (context, index) {
+              child: _scouts.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(
+                              Icons.groups_outlined,
+                              size: 48,
+                              color: AppTheme.scoutingWarmGray,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'No scouts yet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.scoutingWarmGray,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Add your first scout above to get started.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: AppTheme.scoutingWarmGray),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _scouts.length,
+                      itemBuilder: (context, index) {
                   return ListTile(
                     leading: _patrolEmblem(_scouts[index]['patrol'] ?? ''),
                     title: Text(_scouts[index]['name']!),

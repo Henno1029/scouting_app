@@ -17,6 +17,10 @@ class YearCalendarPdfService {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
+  static const List<String> _shortMonths = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
   static const List<String> _letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   static Future<Uint8List> buildYearCalendar({
@@ -25,17 +29,19 @@ class YearCalendarPdfService {
     Uint8List? logoBytes,
     List<Event> events = const [],
   }) async {
+    final yearEvents = events
+        .where((e) => e.date != null && e.date!.year == year)
+        .toList()
+      ..sort((a, b) => a.date!.compareTo(b.date!));
     final byDay = <String, List<Event>>{};
-    for (final event in events) {
-      final date = event.date;
-      if (date == null || date.year != year) continue;
-      byDay.putIfAbsent(AppDates.dayKey(date), () => <Event>[]).add(event);
+    for (final event in yearEvents) {
+      byDay.putIfAbsent(AppDates.dayKey(event.date!), () => <Event>[]).add(event);
     }
 
     final doc = pw.Document();
     doc.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.letter.landscape,
+        pageFormat: PdfPageFormat.letter,
         margin: const pw.EdgeInsets.all(24),
         build: (_) => pw.Column(
           children: [
@@ -60,8 +66,107 @@ class YearCalendarPdfService {
         ),
       ),
     );
+
+    if (yearEvents.isNotEmpty) {
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.letter,
+          margin: const pw.EdgeInsets.all(24),
+          build: (_) => _eventListSections(year, yearEvents),
+        ),
+      );
+    }
+
     return doc.save();
   }
+
+  static List<pw.Widget> _eventListSections(int year, List<Event> events) {
+    final widgets = <pw.Widget>[
+      pw.Text(
+        '$year Events List',
+        style: pw.TextStyle(
+          fontSize: 15,
+          fontWeight: pw.FontWeight.bold,
+          color: _blue,
+        ),
+      ),
+      pw.SizedBox(height: 3),
+      pw.Text(
+        '${events.length} events · days highlighted in red on the calendar',
+        style: pw.TextStyle(fontSize: 8, color: _grey),
+      ),
+      pw.SizedBox(height: 8),
+    ];
+
+    for (var month = 1; month <= 12; month++) {
+      final monthEvents =
+          events.where((e) => e.date!.month == month).toList();
+      if (monthEvents.isEmpty) continue;
+      widgets.add(
+        pw.Text(
+          _months[month - 1],
+          style: pw.TextStyle(
+            fontSize: 11,
+            fontWeight: pw.FontWeight.bold,
+            color: _darkBlue,
+          ),
+        ),
+      );
+      widgets.add(pw.SizedBox(height: 3));
+      widgets.add(_eventsTable(monthEvents));
+      widgets.add(pw.SizedBox(height: 8));
+    }
+    return widgets;
+  }
+
+  static pw.Widget _eventsTable(List<Event> events) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.4),
+      columnWidths: const {
+        0: pw.FixedColumnWidth(46),
+        1: pw.FlexColumnWidth(3),
+        2: pw.FlexColumnWidth(1.4),
+        3: pw.FlexColumnWidth(2),
+      },
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+          children: [
+            _cell('Date', bold: true),
+            _cell('Event', bold: true),
+            _cell('Type', bold: true),
+            _cell('Location', bold: true),
+          ],
+        ),
+        for (final event in events)
+          pw.TableRow(
+            children: [
+              _cell(_dateLabel(event.date!)),
+              _cell(event.title, bold: true),
+              _cell(event.type),
+              _cell(event.location),
+            ],
+          ),
+      ],
+    );
+  }
+
+  static pw.Widget _cell(String text, {bool bold = false}) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      alignment: pw.Alignment.centerLeft,
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 8,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  static String _dateLabel(DateTime date) =>
+      '${_shortMonths[date.month - 1]} ${date.day}';
 
   static pw.Widget _header(String troopName, int year, Uint8List? logoBytes) {
     return pw.Row(
@@ -110,11 +215,11 @@ class YearCalendarPdfService {
 
   static pw.Widget _yearGrid(int year, Map<String, List<Event>> byDay) {
     return pw.Column(
-      children: List.generate(3, (r) {
+      children: List.generate(4, (r) {
         return pw.Expanded(
           child: pw.Row(
-            children: List.generate(4, (c) {
-              final month = r * 4 + c + 1;
+            children: List.generate(3, (c) {
+              final month = r * 3 + c + 1;
               return pw.Expanded(
                 child: pw.Padding(
                   padding: const pw.EdgeInsets.all(2),
@@ -140,7 +245,7 @@ class YearCalendarPdfService {
           child: pw.Text(
             _months[month - 1],
             style: pw.TextStyle(
-              fontSize: 9,
+              fontSize: 8,
               fontWeight: pw.FontWeight.bold,
               color: PdfColors.white,
               letterSpacing: 0.4,
@@ -173,12 +278,12 @@ class YearCalendarPdfService {
         decoration: const pw.BoxDecoration(color: PdfColors.grey200),
         children: List.generate(7, (i) {
           return pw.Container(
-            height: 11,
+            height: 10,
             alignment: pw.Alignment.center,
             child: pw.Text(
               _letters[i],
               style: pw.TextStyle(
-                fontSize: 6.5,
+                fontSize: 6,
                 fontWeight: pw.FontWeight.bold,
                 color: _darkBlue,
               ),
@@ -194,19 +299,19 @@ class YearCalendarPdfService {
           children: List.generate(7, (col) {
             final day = cells[w * 7 + col];
             if (day == null) {
-              return pw.Container(height: 15);
+              return pw.Container(height: 14);
             }
             final isEvent = byDay.containsKey(
               AppDates.dayKey(DateTime(year, month, day)),
             );
             return pw.Container(
-              height: 15,
+              height: 14,
               alignment: pw.Alignment.center,
               decoration: isEvent ? pw.BoxDecoration(color: _lightRed) : null,
               child: pw.Text(
                 '$day',
                 style: pw.TextStyle(
-                  fontSize: 6.5,
+                  fontSize: 6,
                   fontWeight: isEvent ? pw.FontWeight.bold : pw.FontWeight.normal,
                   color: isEvent ? _red : PdfColors.black,
                 ),

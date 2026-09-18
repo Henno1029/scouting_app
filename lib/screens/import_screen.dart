@@ -84,9 +84,11 @@ class _ImportScreenState extends State<ImportScreen> {
       _showSnack('No data rows found in the file.');
       return;
     }
-    final count =
+    final result =
         await CsvImportService.save(_target, _fileName ?? 'untitled.csv', records);
-    _showSnack('Imported $count ${_target.label} records from ${_fileName ?? ''}');
+    _showSnack(result.added == result.total
+        ? 'Imported ${result.added} ${_target.label} records'
+        : 'Imported ${result.added} new ${_target.label} records (${result.total} total)');
   }
 
   void _showSnack(String message) {
@@ -161,6 +163,11 @@ class _ImportScreenState extends State<ImportScreen> {
                     Text(
                       'File: $_fileName',
                       style: const TextStyle(color: AppTheme.scoutingWarmGray),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Imports are merged by year — the calendar and PDF filter by year.',
+                      style: TextStyle(color: AppTheme.scoutingWarmGray),
                     ),
                   ],
                   if (_table.headers.isNotEmpty) ...[
@@ -246,6 +253,9 @@ class _ImportScreenState extends State<ImportScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: DropdownButtonFormField<String>(
+                  key: ValueKey(
+                    'map.${_target.id}.${field.key}.${_table.headers.join('|')}',
+                  ),
                   initialValue: _mapping[field.key] ?? '',
                   decoration: InputDecoration(
                     labelText: field.required
