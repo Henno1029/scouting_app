@@ -7,14 +7,20 @@ class ScoutListScreen extends StatefulWidget {
 
 class _ScoutListScreenState extends State<ScoutListScreen> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _patrolController = TextEditingController();
   String _selectedRank = 'Tenderfoot';
   List<Map<String, String>> _scouts = [];
 
   void _addScout() {
     if (_nameController.text.trim().isEmpty) return;
     setState(() {
-      _scouts.add({'name': _nameController.text.trim(), 'rank': _selectedRank});
+      _scouts.add({
+        'name': _nameController.text.trim(),
+        'rank': _selectedRank,
+        'patrol': _patrolController.text.trim(),
+      });
       _nameController.clear();
+      _patrolController.clear();
     });
   }
 
@@ -52,6 +58,10 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                 );
               }).toList(),
             ),
+            TextField(
+              controller: _patrolController,
+              decoration: InputDecoration(labelText: 'Patrol Name'),
+            ),
             ElevatedButton(
               onPressed: _addScout,
               child: Text('Add Scout'),
@@ -66,7 +76,9 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                 itemBuilder: (context, index) {
                   return ListTile(
                     title: Text(_scouts[index]['name']!),
-                    subtitle: Text(_scouts[index]['rank']!),
+                    subtitle: Text(_scouts[index]['patrol']!.isEmpty
+                        ? _scouts[index]['rank']!
+                        : '${_scouts[index]['rank']} • ${_scouts[index]['patrol']}'),
                   );
                 },
               ),
