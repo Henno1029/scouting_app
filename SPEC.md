@@ -51,8 +51,9 @@ Full calendar page with month and year views:
 - **Month view** — weekday header, tappable day cells showing event chips, and a list of that month's events below.
 - **Year view** — 12 mini-months; tapping a month jumps to that month's view.
 - **Add event** dialog (title, type, date picker, location, notes).
-- **Hide/show meetings** filter toggle.
+- **Show/hide by event type** filter (tap a legend chip or open the filter dialog to hide any type, e.g. meetings, campouts, service).
 - App bar actions: **export year PDF** and **add event**.
+- The year-event list and the PDF export both respect the hidden-type filter.
 - Tap an event or day to see details and delete.
 - Events come from manual entries plus the CSV calendar and Program Grid imports.
 
@@ -84,11 +85,18 @@ App outputs:
 
 - Which requirements each scout can complete at that event
 
+## Planned: Activity Requirements Check
+
+- Use each scout's imported activity log (past activities) to indicate whether they have met the participation/activity requirements for the first three ranks: **Tenderfoot**, **Second Class**, and **First Class**.
+- Surfaced as an indicator on the Calculation Page (and/or Scout Detail) showing counted activities against the requirement (# nights / # activities as defined by the handbooks).
+- Data source: `import_activity` records; combines with advancement data for a per-scout readiness view.
+
 ## CSV Import Screen (`/import`)
 
 Upload report CSVs and map their columns to app fields:
 
-- Supported import types: **Advancements** (Scoutbook Plus Quick Export preset), **Activities**, **Program Calendar**, **Program Grid** (troop annual planning sheet auto-parsed into meetings/campouts/PLC/committee/roundtable/OA events).
+- Supported import types: **Advancements** (Scoutbook Plus Quick Export preset), **Activities**, **Program Calendar**, **Program Grid** (troop annual planning sheet auto-parsed into meetings/campouts/PLC/committee/roundtable/OA events), **Roster** (Scoutbook roster export → creates/merges scout-list entries with patrol + member ID), and **Advancement Record (IAR)** (per-scout auto-parsed file).
+- When advancement data is imported, any scout not already on the roster is **auto-created** with their highest earned rank.
 - User picks a `.csv`/`.tsv` file, sees detected columns, and remaps any column per field.
 - Required-field columns are enforced before saving.
 - Preview of the first 5 rows before import.

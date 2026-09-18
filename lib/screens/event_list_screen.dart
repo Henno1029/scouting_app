@@ -25,7 +25,7 @@ class _EventListScreenState extends State<EventListScreen> {
   List<Event> _events = [];
   DateTime _view = DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool _yearView = false;
-  bool _showMeetings = true;
+  final Set<String> _hiddenTypes = {};
 
   @override
   void initState() {
@@ -41,9 +41,71 @@ class _EventListScreenState extends State<EventListScreen> {
     });
   }
 
-  List<Event> get _displayEvents => _showMeetings
-      ? _events
-      : _events.where((event) => !event.isMeeting).toList();
+  List<Event> get _displayEvents => _events
+      .where((event) =>
+          !_hiddenTypes.contains(_typeLabel(event.type)))
+      .toList();
+
+  String _typeLabel(String type) => type.isEmpty ? 'Unlabeled' : type;
+
+  List<String> _allTypes() {
+    final types = <String>{for (final event in _events) _typeLabel(event.type)};
+    final list = types.toList()..sort();
+    return list;
+  }
+
+  Future<void> _showTypeFilterDialog() async {
+    final types = _allTypes();
+    if (types.isEmpty) return;
+    final draft = Set<String>.from(_hiddenTypes);
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Show / Hide Event Types'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final type in types)
+                  SwitchListTile(
+                    dense: true,
+                    title: Text(type),
+                    subtitle: Text(_hiddenTypes.contains(type)
+                        ? 'Hidden'
+                        : 'Visible'),
+                    value: !draft.contains(type),
+                    onChanged: (visible) => setDialogState(() {
+                      if (visible) {
+                        draft.remove(type);
+                      } else {
+                        draft.add(type);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                setState(() => _hiddenTypes
+                  ..clear()
+                  ..addAll(draft));
+                Navigator.pop(context);
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   List<Event> _eventsOn(DateTime day) {
     final key = AppDates.dayKey(day);
@@ -174,14 +236,14 @@ class _EventListScreenState extends State<EventListScreen> {
                   const SizedBox(width: 12),
                   IconButton(
                     icon: Icon(
-                      _showMeetings
-                          ? Icons.filter_alt
-                          : Icons.filter_alt_off,
+                      _hiddenTypes.isEmpty
+                          ? Icons.filter_alt_outlined
+                          : Icons.filter_alt,
                     ),
-                    tooltip: _showMeetings
-                        ? 'Hide meetings'
-                        : 'Show meetings',
-                    onPressed: () => setState(() => _showMeetings = !_showMeetings),
+                    tooltip: _hiddenTypes.isEmpty
+                        ? 'Choose event types to show/hide'
+                        : '${_hiddenTypes.length} type(s) hidden',
+                    onPressed: _showTypeFilterDialog,
                   ),
                 ],
               ),
@@ -217,32 +279,51 @@ class _EventListScreenState extends State<EventListScreen> {
         runSpacing: 4,
         children: [
           for (final entry in entries)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppTheme.eventTypeColor(entry.key),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    entry.key,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.scoutingDarkBlue,
+            InkWell(
+              key: ValueKey('legend-${entry.key}'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() {
+                if (!_hiddenTypes.remove(entry.key)) {
+                  _hiddenTypes.add(entry.key);
+                }
+              }),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _hiddenTypes.contains(entry.key)
+                      ? AppTheme.scoutingWarmGray
+                      : AppTheme.eventTypeColor(entry.key),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      entry.key,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _hiddenTypes.contains(entry.key)
+                            ? Colors.white
+                            : AppTheme.scoutingDarkBlue,
+                        decoration: _hiddenTypes.contains(entry.key)
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${entry.value}',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppTheme.scoutingWarmGray,
+                    const SizedBox(width: 4),
+                    Text(
+                      '${entry.value}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: _hiddenTypes.contains(entry.key)
+                            ? Colors.white70
+                            : AppTheme.scoutingWarmGray,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],

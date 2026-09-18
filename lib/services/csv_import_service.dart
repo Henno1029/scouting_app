@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:csv/csv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'branding_service.dart';
+
 class CsvTable {
   final List<String> headers;
   final List<List<String>> rows;
@@ -171,6 +173,28 @@ class CsvImportService {
         'notes': 'Notes',
       },
     ),
+    ImportTarget(
+      id: 'roster',
+      label: 'Roster',
+      description: 'Scoutbook roster export (names, patrol, member IDs)',
+      storageKey: 'scouts',
+      fields: [
+        ImportField('memberId', 'BSA Member ID'),
+        ImportField('firstName', 'First Name', required: true),
+        ImportField('middleName', 'Middle Name'),
+        ImportField('lastName', 'Last Name', required: true),
+        ImportField('rank', 'Rank'),
+        ImportField('patrol', 'Patrol Name'),
+      ],
+      preset: {
+        'memberId': 'BSA Member ID',
+        'firstName': 'First Name',
+        'middleName': 'Middle Name',
+        'lastName': 'Last Name',
+        'rank': 'Rank',
+        'patrol': 'Patrol Name',
+      },
+    ),
   ];
 
   static ImportTarget targetById(String id) {
@@ -321,6 +345,7 @@ class CsvImportService {
     'location': ['Location', 'Site', 'Venue'],
     'notes': ['Notes', 'Note', 'Comments'],
     'memberId': ['BSA Member ID', 'Member ID', 'BSA ID'],
+    'patrol': ['Patrol Name', 'Patrol', 'Den Name'],
     'advancement': ['Advancement', 'Badge', 'Rank', 'Award'],
     'dateCompleted': ['Date Completed', 'Date', 'Earned Date'],
     'approved': ['Approved', 'Leader Approved By', 'Counselor Approved'],
@@ -353,32 +378,44 @@ class CsvImportService {
   static Future<({int added, int total, int scoutsAdded})> save(
       ImportTarget target, String fileName, List<Map<String, String>> records) async {
     final prefs = await SharedPreferences.getInstance();
-    final existingRaw = await load(target.storageKey);
-    final existing =
-        existingRaw.map((m) => Map<String, String>.from(m)).toList();
-    final seen = <String>{for (final r in existing) _signature(r)};
+
     var added = 0;
-    for (final record in records) {
-      if (seen.add(_signature(record))) {
-        existing.add(record);
-        added++;
+    var total = 0;
+    var scoutsAdded = 0;
+
+    if (target.storageKey == 'scouts') {
+      final result = await _mergeRoster(records);
+      added = result.added;
+      total = result.total;
+      scoutsAdded = result.scoutsAdded;
+    } else {
+      final existingRaw = await load(target.storageKey);
+      final existing =
+          existingRaw.map((m) => Map<String, String>.from(m)).toList();
+      final seen = <String>{for (final r in existing) _signature(r)};
+      for (final record in records) {
+        if (seen.add(_signature(record))) {
+          existing.add(record);
+          added++;
+        }
+      }
+      total = existing.length;
+      await prefs.setString(target.storageKey, jsonEncode(existing));
+      if (target.storageKey == 'import_advancement') {
+        scoutsAdded = await _ensureScouts(records);
       }
     }
-    await prefs.setString(target.storageKey, jsonEncode(existing));
+
     await prefs.setString(
       '${target.storageKey}_meta',
       jsonEncode({
         'fileName': fileName,
         'importedAt': DateTime.now().toIso8601String(),
-        'count': existing.length,
+        'count': total,
         'added': added,
       }),
     );
-    final scoutsAdded =
-        target.storageKey == 'import_advancement'
-            ? await _ensureScouts(records)
-            : 0;
-    return (added: added, total: existing.length, scoutsAdded: scoutsAdded);
+    return (added: added, total: total, scoutsAdded: scoutsAdded);
   }
 
   static const List<String> _rankOrder = [
@@ -427,6 +464,7 @@ class CsvImportService {
 
     final seen = {for (final scout in scouts) _normalize(scout['name'] ?? '')};
     var created = 0;
+    var changed = false;
     for (final record in records) {
       final name = _displayName(record);
       if (name.isEmpty) continue;
@@ -438,12 +476,79 @@ class CsvImportService {
           'patrol': '',
         });
         created++;
+      } else if ((rankByName[key] ?? '').isNotEmpty) {
+        final existing =
+            scouts.firstWhere((s) => _normalize(s['name'] ?? '') == key);
+        if ((existing['rank'] ?? '').isEmpty) {
+          existing['rank'] = rankByName[key]!;
+          changed = true;
+        }
       }
     }
-    if (created > 0) {
+    if (created > 0 || changed) {
       await prefs.setString('scouts', jsonEncode(scouts));
     }
     return created;
+  }
+
+  static Future<({int added, int total, int scoutsAdded})> _mergeRoster(
+      List<Map<String, String>> records) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('scouts');
+    final scouts = raw == null || raw.isEmpty
+        ? <Map<String, String>>[]
+        : (jsonDecode(raw) as List)
+            .map((e) => Map<String, String>.from(e as Map))
+            .toList();
+    final byKey = <String, Map<String, String>>{};
+    for (final scout in scouts) {
+      byKey[_normalize(scout['name'] ?? '')] = scout;
+    }
+
+    var added = 0;
+    var changed = false;
+    final patrols = <String>{};
+    for (final record in records) {
+      final name = _displayName(record);
+      if (name.isEmpty) continue;
+      final patrol = (record['patrol'] ?? '').trim();
+      final rank = (record['rank'] ?? '').trim();
+      final memberId = (record['memberId'] ?? '').trim();
+      if (patrol.isNotEmpty) patrols.add(patrol);
+
+      final key = _normalize(name);
+      final scout = byKey[key];
+      if (scout == null) {
+        scouts.add({
+          'name': name,
+          'rank': rank,
+          'patrol': patrol,
+          if (memberId.isNotEmpty) 'memberId': memberId,
+        });
+        byKey[key] = scouts.last;
+        added++;
+      } else {
+        if (rank.isNotEmpty && (scout['rank'] ?? '').isEmpty) {
+          scout['rank'] = rank;
+          changed = true;
+        }
+        if (patrol.isNotEmpty && (scout['patrol'] ?? '') != patrol) {
+          scout['patrol'] = patrol;
+          changed = true;
+        }
+        if (memberId.isNotEmpty && (scout['memberId'] ?? '').isEmpty) {
+          scout['memberId'] = memberId;
+          changed = true;
+        }
+      }
+    }
+    if (added > 0 || changed) {
+      await prefs.setString('scouts', jsonEncode(scouts));
+    }
+    for (final patrol in patrols) {
+      BrandingService.addPatrolName(patrol);
+    }
+    return (added: added, total: scouts.length, scoutsAdded: added);
   }
 
   static String _signature(Map<String, String> record) {
