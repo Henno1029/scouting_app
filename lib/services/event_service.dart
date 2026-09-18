@@ -8,6 +8,7 @@ import 'csv_import_service.dart';
 
 class EventService {
   static const _key = 'events';
+  static const _deletedImportsKey = 'deleted_imported_event_ids';
 
   static const List<String> _importKeys = ['import_calendar', 'import_program_grid'];
 
@@ -36,8 +37,23 @@ class EventService {
     );
   }
 
+  static Future<Set<String>> _deletedImportIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_deletedImportsKey);
+    if (raw == null || raw.isEmpty) return <String>{};
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <String>{};
+    return decoded.map((e) => e.toString()).toSet();
+  }
+
+  static Future<void> _saveDeletedImportIds(Set<String> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_deletedImportsKey, jsonEncode(ids.toList()));
+  }
+
   static Future<List<Event>> load() async {
     final events = await _loadManual();
+    final deleted = await _deletedImportIds();
 
     for (final key in _importKeys) {
       final rows = await CsvImportService.load(key);
@@ -46,8 +62,10 @@ class EventService {
         final notes = row['notes']?.toString() ?? '';
         final type = row['type']?.toString() ?? '';
         final location = row['location']?.toString() ?? '';
+        final id = _importEventId(key, row);
+        if (deleted.contains(id)) continue;
         events.add(Event(
-          id: '$key-${events.length}-${date?.millisecondsSinceEpoch ?? DateTime.now().microsecondsSinceEpoch}',
+          id: id,
           title: row['title']?.toString() ?? 'Untitled',
           date: date,
           location: location,
@@ -66,6 +84,17 @@ class EventService {
     return events;
   }
 
+  /// Stable id per imported row so the same report row maps to the same
+  /// event across visits (and can be deleted).
+  static String _importEventId(String key, Map<String, dynamic> row) {
+    final date = row['date']?.toString().trim() ?? '';
+    final title = row['title']?.toString().trim() ?? '';
+    final type = row['type']?.toString().trim() ?? '';
+    final location = row['location']?.toString().trim() ?? '';
+    final notes = row['notes']?.toString().trim() ?? '';
+    return '$key|$date|$title|$type|$location|$notes';
+  }
+
   static Future<void> add(Event event) async {
     final events = await _loadManual();
     events.add(event);
@@ -73,6 +102,13 @@ class EventService {
   }
 
   static Future<void> delete(String id) async {
+    final isImported = _importKeys.any((key) => id.startsWith('$key|'));
+    if (isImported) {
+      final deleted = await _deletedImportIds();
+      deleted.add(id);
+      await _saveDeletedImportIds(deleted);
+      return;
+    }
     final events = await _loadManual();
     events.removeWhere((e) => e.id == id);
     await _saveManual(events);
