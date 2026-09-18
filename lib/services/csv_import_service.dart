@@ -80,6 +80,36 @@ class CsvImportService {
       },
     ),
     ImportTarget(
+      id: 'iar',
+      label: 'Advancement Record (IAR)',
+      description: 'Scoutbook IAR - one scout per file (auto-parsed)',
+      storageKey: 'import_advancement',
+      fields: [
+        ImportField('memberId', 'BSA Member ID'),
+        ImportField('firstName', 'First Name'),
+        ImportField('middleName', 'Middle Name'),
+        ImportField('lastName', 'Last Name'),
+        ImportField('advancementType', 'Advancement Type'),
+        ImportField('advancement', 'Advancement', required: true),
+        ImportField('version', 'Version'),
+        ImportField('dateCompleted', 'Date Completed'),
+        ImportField('approved', 'Approved'),
+        ImportField('awarded', 'Awarded'),
+      ],
+      preset: {
+        'memberId': 'BSA Member ID',
+        'firstName': 'First Name',
+        'middleName': 'Middle Name',
+        'lastName': 'Last Name',
+        'advancementType': 'Advancement Type',
+        'advancement': 'Advancement',
+        'version': 'Version',
+        'dateCompleted': 'Date Completed',
+        'approved': 'Approved',
+        'awarded': 'Awarded',
+      },
+    ),
+    ImportTarget(
       id: 'activity',
       label: 'Activities',
       description: 'Scout activity / participation report',
@@ -148,12 +178,13 @@ class CsvImportService {
   }
 
   static CsvTable parse(String content) {
-    final decoded = csv.decode(content);
+    final decoded = _decode(content);
     if (decoded.isEmpty) return CsvTable.empty;
 
+    final headerIndex = _detectHeaderRow(decoded);
     final headers = <String>[];
     final used = <String>{};
-    for (final raw in decoded.first) {
+    for (final raw in decoded[headerIndex]) {
       var name = raw.toString().trim().replaceAll('\uFEFF', '');
       if (name.isEmpty) name = 'Column ${headers.length + 1}';
       var candidate = name;
@@ -167,7 +198,7 @@ class CsvImportService {
     }
 
     final rows = <List<String>>[];
-    for (final raw in decoded.skip(1)) {
+    for (final raw in decoded.skip(headerIndex + 1)) {
       final row = List<String>.generate(
         headers.length,
         (index) => index < raw.length ? raw[index].toString().trim() : '',
@@ -178,6 +209,55 @@ class CsvImportService {
     return CsvTable(headers: headers, rows: rows);
   }
 
+  static List<List<String>> decodeRows(String content) {
+    return _decode(content)
+        .map((row) => row.map((cell) => cell.toString().trim()).toList())
+        .toList();
+  }
+
+  static List<List<dynamic>> _decode(String content) {
+    return const CsvDecoder().convert(content);
+  }
+
+  static const List<String> _headerTerms = [
+    'memberid', 'firstname', 'lastname', 'middlename', 'name',
+    'date', 'activity', 'location', 'notes', 'scout', 'patrol',
+    'rank', 'advancement', 'type', 'camp', 'event', 'birth',
+    'phone', 'email', 'role', 'position', 'unit', 'service',
+    'attendance', 'attend', 'hours', 'approved', 'awarded',
+    'version', 'week', 'meeting', 'holiday', 'roundtable',
+    'committee', 'plc', 'council', 'check',
+  ];
+
+  static int _detectHeaderRow(List<List<dynamic>> decoded) {
+    var bestIndex = 0;
+    var bestScore = 0;
+    final limit = decoded.length < 40 ? decoded.length : 40;
+    for (var i = 0; i < limit; i++) {
+      var score = 0;
+      for (final cell in decoded[i]) {
+        score += _headerCellScore(cell.toString());
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  }
+
+  static int _headerCellScore(String raw) {
+    final normalized = _normalize(raw);
+    if (normalized.isEmpty) return 0;
+    var best = 0;
+    for (final term in _headerTerms) {
+      if (normalized.contains(term) || term.contains(normalized)) {
+        if (term.length > best) best = term.length;
+      }
+    }
+    return best;
+  }
+
   static Map<String, String> autoMap(ImportTarget target, List<String> headers) {
     final lookup = <String, String>{};
     for (final header in headers) {
@@ -186,18 +266,66 @@ class CsvImportService {
 
     final mapping = <String, String>{};
     for (final field in target.fields) {
-      final candidates = [target.preset[field.key], field.label];
+      final candidates = <String>[
+        target.preset[field.key] ?? '',
+        field.label,
+        ...?_fieldAliases[field.key],
+      ];
+      String? chosen;
       for (final candidate in candidates) {
-        if (candidate == null) continue;
-        final header = lookup[_normalize(candidate)];
-        if (header != null) {
-          mapping[field.key] = header;
-          break;
+        if (candidate.isEmpty) continue;
+        chosen = lookup[_normalize(candidate)];
+        if (chosen != null) break;
+      }
+      if (chosen == null) {
+        final norm = _normalize(field.label);
+        if (norm.isNotEmpty) {
+          final matches = headers
+              .where((h) {
+                final hn = _normalize(h);
+                return hn.contains(norm) || norm.contains(hn);
+              })
+              .toList()
+            ..sort((a, b) {
+              final lenDiff =
+                  _normalize(b).length.compareTo(_normalize(a).length);
+              return lenDiff != 0 ? lenDiff : a.compareTo(b);
+            });
+          if (matches.isNotEmpty) chosen = matches.first;
         }
       }
+      if (chosen != null) mapping[field.key] = chosen;
     }
+
+    final lastName = lookup['lastname'];
+    final bareName = lookup['name'];
+    if (lastName != null &&
+        bareName != null &&
+        mapping['scoutName'] == bareName) {
+      mapping['scoutName'] = lastName;
+    }
+
+    if (mapping['event'] == null && mapping['activity'] != null) {
+      mapping['event'] = mapping['activity']!;
+    }
+
     return mapping;
   }
+
+  static const Map<String, List<String>> _fieldAliases = {
+    'scoutName': ['Scout Name', 'Name', 'Full Name', 'Last Name', 'First Name'],
+    'activity': ['Activity', 'Name', 'Service', 'Event'],
+    'date': ['Date', 'Start Date', 'Date Completed', 'Start'],
+    'title': ['Title', 'Event', 'Name', 'Activity'],
+    'type': ['Type', 'Event Type', 'Activity'],
+    'location': ['Location', 'Site', 'Venue'],
+    'notes': ['Notes', 'Note', 'Comments'],
+    'memberId': ['BSA Member ID', 'Member ID', 'BSA ID'],
+    'advancement': ['Advancement', 'Badge', 'Rank', 'Award'],
+    'dateCompleted': ['Date Completed', 'Date', 'Earned Date'],
+    'approved': ['Approved', 'Leader Approved By', 'Counselor Approved'],
+    'awarded': ['Awarded', 'Awarded By', 'Awarded Date'],
+  };
 
   static List<Map<String, String>> apply(CsvTable table, Map<String, String> mapping) {
     final index = <String, int>{};
@@ -222,7 +350,7 @@ class CsvImportService {
         .toList();
   }
 
-  static Future<({int added, int total})> save(
+  static Future<({int added, int total, int scoutsAdded})> save(
       ImportTarget target, String fileName, List<Map<String, String>> records) async {
     final prefs = await SharedPreferences.getInstance();
     final existingRaw = await load(target.storageKey);
@@ -246,7 +374,76 @@ class CsvImportService {
         'added': added,
       }),
     );
-    return (added: added, total: existing.length);
+    final scoutsAdded =
+        target.storageKey == 'import_advancement'
+            ? await _ensureScouts(records)
+            : 0;
+    return (added: added, total: existing.length, scoutsAdded: scoutsAdded);
+  }
+
+  static const List<String> _rankOrder = [
+    'Scout',
+    'Tenderfoot',
+    'Second Class',
+    'First Class',
+    'Star',
+    'Life',
+    'Eagle',
+  ];
+
+  static String _displayName(Map<String, String> record) {
+    final parts = [
+      (record['firstName'] ?? '').trim(),
+      (record['middleName'] ?? '').trim(),
+      (record['lastName'] ?? '').trim(),
+    ].where((part) => part.isNotEmpty);
+    return parts.join(' ').trim();
+  }
+
+  static Future<int> _ensureScouts(List<Map<String, String>> records) async {
+    final rankByName = <String, String>{};
+    for (final record in records) {
+      final name = _displayName(record);
+      if (name.isEmpty) continue;
+      if ((record['advancementType'] ?? '').trim().toLowerCase() != 'rank') {
+        continue;
+      }
+      final advancement = (record['advancement'] ?? '').trim();
+      final idx = _rankOrder.indexOf(advancement);
+      if (idx < 0) continue;
+      final key = _normalize(name);
+      final current = rankByName[key];
+      final currentIdx = current == null ? -1 : _rankOrder.indexOf(current);
+      if (idx > currentIdx) rankByName[key] = advancement;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('scouts');
+    final scouts = raw == null
+        ? <Map<String, String>>[]
+        : (jsonDecode(raw) as List)
+            .map((e) => Map<String, String>.from(e as Map))
+            .toList();
+
+    final seen = {for (final scout in scouts) _normalize(scout['name'] ?? '')};
+    var created = 0;
+    for (final record in records) {
+      final name = _displayName(record);
+      if (name.isEmpty) continue;
+      final key = _normalize(name);
+      if (seen.add(key)) {
+        scouts.add({
+          'name': name,
+          'rank': rankByName[key] ?? '',
+          'patrol': '',
+        });
+        created++;
+      }
+    }
+    if (created > 0) {
+      await prefs.setString('scouts', jsonEncode(scouts));
+    }
+    return created;
   }
 
   static String _signature(Map<String, String> record) {

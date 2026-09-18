@@ -186,6 +186,7 @@ class _EventListScreenState extends State<EventListScreen> {
                 ],
               ),
             ),
+            _buildLegend(),
             Expanded(
               child: SingleChildScrollView(
                 child: _yearView ? _buildYearView() : _buildMonthView(),
@@ -193,6 +194,58 @@ class _EventListScreenState extends State<EventListScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLegend() {
+    final counts = <String, int>{};
+    for (final event in _displayEvents) {
+      final label = event.type.isNotEmpty ? event.type : 'Unlabeled';
+      counts[label] = (counts[label] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return const SizedBox.shrink();
+    final entries = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        return byCount != 0 ? byCount : a.key.compareTo(b.key);
+      });
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        children: [
+          for (final entry in entries)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.eventTypeColor(entry.key),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    entry.key,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.scoutingDarkBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${entry.value}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.scoutingWarmGray,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -288,7 +341,7 @@ class _EventListScreenState extends State<EventListScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     height: 15,
                     decoration: BoxDecoration(
-                      color: AppTheme.scoutingLightTan,
+                      color: AppTheme.eventTypeColor(event.type),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -348,7 +401,7 @@ class _EventListScreenState extends State<EventListScreen> {
             children: monthEvents.map((event) {
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: AppTheme.scoutingPaleBlue,
+                  backgroundColor: AppTheme.eventTypeColor(event.type),
                   child: Icon(
                     _eventIcon(event.type),
                     size: 20,
@@ -439,7 +492,8 @@ class _EventListScreenState extends State<EventListScreen> {
                         return const Expanded(child: SizedBox(height: 18));
                       }
                       final date = DateTime(year, month, dayNum);
-                      final hasEvents = _eventsOn(date).isNotEmpty;
+                      final events = _eventsOn(date);
+                      final hasEvents = events.isNotEmpty;
                       final isToday = AppDates.dayKey(date) == AppDates.dayKey(today);
                       return Expanded(
                         child: Container(
@@ -448,14 +502,36 @@ class _EventListScreenState extends State<EventListScreen> {
                           decoration: BoxDecoration(
                             color: isToday ? AppTheme.scoutingPaleBlue : Colors.white,
                           ),
-                          child: Text(
-                            '$dayNum',
-                            style: TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: hasEvents ? FontWeight.bold : FontWeight.normal,
-                              color: hasEvents ? AppTheme.scoutingRed : AppTheme.scoutingDarkGrey,
-                            ),
-                          ),
+                          child: hasEvents
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '$dayNum',
+                                      style: const TextStyle(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.scoutingDarkBlue,
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 4,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.eventTypeColor(
+                                            events.first.type),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  '$dayNum',
+                                  style: const TextStyle(
+                                    fontSize: 8.5,
+                                    color: AppTheme.scoutingDarkGrey,
+                                  ),
+                                ),
                         ),
                       );
                     }),

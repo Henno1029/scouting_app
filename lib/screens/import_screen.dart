@@ -17,7 +17,7 @@ class ImportScreen extends StatefulWidget {
 class _ImportScreenState extends State<ImportScreen> {
   ImportTarget _target = CsvImportService.targets.first;
   String? _fileName;
-  List<List<String>> _rawRows = const [];
+  CsvTable _parsed = CsvTable.empty;
   CsvTable _table = CsvTable.empty;
   Map<String, String> _mapping = {};
 
@@ -43,18 +43,21 @@ class _ImportScreenState extends State<ImportScreen> {
     final parsed = CsvImportService.parse(content);
     setState(() {
       _fileName = name;
-      _rawRows = parsed.rows;
+      _parsed = parsed;
       _applyTargetRows();
     });
   }
 
   void _applyTargetRows() {
-    final rows = _target.id == 'program_grid'
-        ? ProgramGridParser.toRows(_rawRows)
-        : _rawRows;
-    _table = rows.isEmpty
-        ? CsvTable.empty
-        : CsvTable(headers: rows.first, rows: rows.skip(1).toList());
+    if (_target.id == 'program_grid') {
+      final fullRows = [_parsed.headers, ..._parsed.rows];
+      final rows = ProgramGridParser.toRows(fullRows);
+      _table = rows.isEmpty
+          ? CsvTable.empty
+          : CsvTable(headers: rows.first, rows: rows.skip(1).toList());
+    } else {
+      _table = _parsed;
+    }
     _mapping = CsvImportService.autoMap(_target, _table.headers);
   }
 
@@ -86,9 +89,14 @@ class _ImportScreenState extends State<ImportScreen> {
     }
     final result =
         await CsvImportService.save(_target, _fileName ?? 'untitled.csv', records);
-    _showSnack(result.added == result.total
+    var message = result.added == result.total
         ? 'Imported ${result.added} ${_target.label} records'
-        : 'Imported ${result.added} new ${_target.label} records (${result.total} total)');
+        : 'Imported ${result.added} new ${_target.label} records (${result.total} total)';
+    if (result.scoutsAdded > 0) {
+      message += ' • Created ${result.scoutsAdded} '
+          '${result.scoutsAdded == 1 ? 'scout' : 'scouts'} from the roster';
+    }
+    _showSnack(message);
   }
 
   void _showSnack(String message) {
@@ -96,6 +104,9 @@ class _ImportScreenState extends State<ImportScreen> {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
+
+  bool _isKnownHeader(String? value) =>
+      value == null || value.isEmpty || _table.headers.contains(value);
 
   @override
   Widget build(BuildContext context) {
@@ -252,36 +263,64 @@ class _ImportScreenState extends State<ImportScreen> {
             for (final field in _target.fields)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey(
-                    'map.${_target.id}.${field.key}.${_table.headers.join('|')}',
-                  ),
-                  initialValue: _mapping[field.key] ?? '',
-                  decoration: InputDecoration(
-                    labelText: field.required
-                        ? '${field.label} (required)'
-                        : field.label,
-                    isDense: true,
-                  ),
-                  isExpanded: true,
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: '',
-                      child: Text('— Ignore —'),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: Text(
+                        field.required ? '${field.label} *' : field.label,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.scoutingDarkBlue,
+                        ),
+                      ),
                     ),
-                    ..._table.headers.map((header) => DropdownMenuItem<String>(
-                          value: header,
-                          child: Text(
-                            header,
-                            overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _mapping[field.key] ?? '',
+                            icon: const Icon(Icons.arrow_drop_down),
+                            isExpanded: true,
+                            isDense: true,
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: '',
+                                child: Text(
+                                  '— Ignore —',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              ..._table.headers.map((header) {
+                                return DropdownMenuItem<String>(
+                                  value: header,
+                                  child: Text(
+                                    header,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) {
+                              if (value == '' || _isKnownHeader(value)) {
+                                setState(() {
+                                  _mapping[field.key] = value ?? '';
+                                });
+                              }
+                            },
                           ),
-                        )),
+                        ),
+                      ),
+                    ),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _mapping[field.key] = value ?? '';
-                    });
-                  },
                 ),
               ),
           ],

@@ -13,6 +13,28 @@ class AppTheme {
   static const Color scoutingOlive = Color(0xFF243E2C);
   static const Color scoutingYellow = Color(0xFFFFCC00);
 
+  static const Map<String, Color> _eventTypeColors = {
+    'meeting': Color(0xFFD6E3F0),
+    'campout': Color(0xFFD9EAD3),
+    'camping': Color(0xFFD9EAD3),
+    'plc': Color(0xFFE4DCF1),
+    'committee': Color(0xFFD5EFEF),
+    'roundtable': Color(0xFFF3E3C6),
+    'councilactivity': Color(0xFFF5DCE7),
+    'oa': Color(0xFFF0E8C4),
+    'holiday': Color(0xFFFBEAEB),
+    'specialevent': Color(0xFFE3E0DA),
+    'event': Color(0xFFE3E0DA),
+  };
+
+  static const Color _eventTypeFallback = Color(0xFFEAEAE6);
+
+  static Color eventTypeColor(String type) {
+    final normalized =
+        type.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return _eventTypeColors[normalized] ?? _eventTypeFallback;
+  }
+
   static ThemeData build() {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: scoutingBlue,
