@@ -389,7 +389,11 @@ class CsvImportService {
       total = result.total;
       scoutsAdded = result.scoutsAdded;
     } else {
-      final existingRaw = await load(target.storageKey);
+      final replace = (target.storageKey == 'import_program_grid' ||
+              target.storageKey == 'import_calendar') &&
+          (await loadMeta(target.storageKey))?['fileName'] == fileName;
+      final existingRaw =
+          replace ? const <Map<String, dynamic>>[] : await load(target.storageKey);
       final existing =
           existingRaw.map((m) => Map<String, String>.from(m)).toList();
       final seen = <String>{for (final r in existing) _signature(r)};

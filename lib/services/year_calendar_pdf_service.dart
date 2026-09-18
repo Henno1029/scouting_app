@@ -10,8 +10,28 @@ class YearCalendarPdfService {
   static final PdfColor _blue = PdfColor.fromInt(0xFF003F87);
   static final PdfColor _darkBlue = PdfColor.fromInt(0xFF003366);
   static final PdfColor _red = PdfColor.fromInt(0xFFCE1126);
-  static final PdfColor _lightRed = PdfColor.fromInt(0xFFFBEAEB);
   static final PdfColor _grey = PdfColor.fromInt(0xFF515354);
+
+  static const Map<String, PdfColor> _typeColors = {
+    'meeting': PdfColor.fromInt(0xFFD6E3F0),
+    'campout': PdfColor.fromInt(0xFFD9EAD3),
+    'camping': PdfColor.fromInt(0xFFD9EAD3),
+    'plc': PdfColor.fromInt(0xFFE4DCF1),
+    'committee': PdfColor.fromInt(0xFFD5EFEF),
+    'roundtable': PdfColor.fromInt(0xFFF3E3C6),
+    'councilactivity': PdfColor.fromInt(0xFFF5DCE7),
+    'oa': PdfColor.fromInt(0xFFF0E8C4),
+    'holiday': PdfColor.fromInt(0xFFFBEAEB),
+    'specialevent': PdfColor.fromInt(0xFFE3E0DA),
+    'event': PdfColor.fromInt(0xFFE3E0DA),
+  };
+  static final PdfColor _typeFallback = PdfColor.fromInt(0xFFEAEAE6);
+
+  static PdfColor _typeColor(String type) {
+    final normalized =
+        type.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return _typeColors[normalized] ?? _typeFallback;
+  }
 
   static const List<String> _months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -48,6 +68,8 @@ class YearCalendarPdfService {
             _header(troopName, year, logoBytes),
             pw.SizedBox(height: 10),
             pw.Expanded(child: _yearGrid(year, byDay)),
+            pw.SizedBox(height: 4),
+            _legend(yearEvents),
             pw.SizedBox(height: 4),
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -143,7 +165,7 @@ class YearCalendarPdfService {
             children: [
               _cell(_dateLabel(event.date!)),
               _cell(event.title, bold: true),
-              _cell(event.type),
+              _cell(event.type, background: _typeColor(event.type)),
               _cell(event.location),
             ],
           ),
@@ -151,10 +173,14 @@ class YearCalendarPdfService {
     );
   }
 
-  static pw.Widget _cell(String text, {bool bold = false}) {
+  static pw.Widget _cell(String text,
+      {bool bold = false, PdfColor? background}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
       alignment: pw.Alignment.centerLeft,
+      decoration: background != null
+          ? pw.BoxDecoration(color: background)
+          : null,
       child: pw.Text(
         text,
         style: pw.TextStyle(
@@ -209,6 +235,46 @@ class YearCalendarPdfService {
             color: _red,
           ),
         ),
+      ],
+    );
+  }
+
+  static pw.Widget _legend(List<Event> events) {
+    final counts = <String, int>{};
+    for (final event in events) {
+      final type = event.type.isEmpty ? 'Unlabeled' : event.type;
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return pw.SizedBox.shrink();
+    final entries = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        return byCount != 0 ? byCount : a.key.compareTo(b.key);
+      });
+    return pw.Wrap(
+      spacing: 6,
+      runSpacing: 3,
+      children: [
+        for (final entry in entries)
+          pw.Row(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              pw.Container(
+                width: 8,
+                height: 8,
+                decoration: pw.BoxDecoration(
+                  color: _typeColor(entry.key),
+                  borderRadius:
+                      pw.BorderRadius.all(pw.Radius.circular(2)),
+                ),
+              ),
+              pw.SizedBox(width: 3),
+              pw.Text(
+                '${entry.key} (${entry.value})',
+                style: pw.TextStyle(fontSize: 7, color: _grey),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -301,19 +367,22 @@ class YearCalendarPdfService {
             if (day == null) {
               return pw.Container(height: 14);
             }
-            final isEvent = byDay.containsKey(
-              AppDates.dayKey(DateTime(year, month, day)),
-            );
+            final date = DateTime(year, month, day);
+            final dayEvents = byDay[AppDates.dayKey(date)];
+            final isEvent = dayEvents != null && dayEvents.isNotEmpty;
+            final cellColor =
+                isEvent ? _typeColor(dayEvents.first.type) : null;
             return pw.Container(
               height: 14,
               alignment: pw.Alignment.center,
-              decoration: isEvent ? pw.BoxDecoration(color: _lightRed) : null,
+              decoration:
+                  cellColor != null ? pw.BoxDecoration(color: cellColor) : null,
               child: pw.Text(
                 '$day',
                 style: pw.TextStyle(
                   fontSize: 6,
                   fontWeight: isEvent ? pw.FontWeight.bold : pw.FontWeight.normal,
-                  color: isEvent ? _red : PdfColors.black,
+                  color: isEvent ? _darkBlue : PdfColors.black,
                 ),
               ),
             );

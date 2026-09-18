@@ -22,13 +22,12 @@ class ProgramGridParser {
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
-  static final RegExp _datePattern =
-      RegExp(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}(?!\d)');
+  static final RegExp _digitDatePattern =
+      RegExp(r'\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?');
 
-  static final RegExp _monthDayPattern = RegExp(
-    r'\b(january|february|march|april|may|june|july|august|'
-    r'september|october|november|december)\s+(\d{1,2})\b',
-    caseSensitive: false,
+  static final RegExp _rangePattern = RegExp(
+    r'^\s*(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)\s*-\s*'
+    r'(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)\s*$',
   );
 
   static List<List<String>> toRows(List<List<String>> rows) {
@@ -72,21 +71,14 @@ class ProgramGridParser {
     final featureCol = mapCols.index('Program Feature');
     final campingCol = mapCols.index('Camping');
     final eventCol = mapCols.index('Event');
-    final plcCol = mapCols.index('PLC');
-    final committeeCol = mapCols.index('Committee');
-    final roundtableCol = mapCols.index('Roundtable');
-    final councilCol = mapCols.index('Council Activity');
-    final oaCol = mapCols.index('OA');
+    final specialEventCol = mapCols.index('Special Event');
+    final serviceProjectCol = mapCols.index('Service Project');
     final holidayCol = mapCols.index('Holiday');
 
     for (var i = headerIndex + 1; i < rows.length; i++) {
       final a = rows[i];
       if (!_isMonthRow(a)) continue;
-      final detail = i + 1 < rows.length &&
-              rows[i + 1].isNotEmpty &&
-              rows[i + 1][0].trim().isEmpty
-          ? rows[i + 1]
-          : const <String>[];
+      final detail = _detailRow(rows, i + 1);
       final year = _yearFrom(a, detail);
       final feature = _cell(a, featureCol);
 
@@ -104,55 +96,31 @@ class ProgramGridParser {
         ));
       }
 
-      _addDateEvent(results, campingCol, 'Campout', 'Campout', a, detail, year,
-          camping: true);
-      _addDateEvent(results, eventCol, 'Event', 'Special event', a, detail, year);
-      _addDateEvent(results, plcCol, 'PLC', 'PLC', a, detail, year);
-      _addDateEvent(
-          results, committeeCol, 'Committee', 'Committee', a, detail, year);
-      _addDateEvent(results, councilCol, 'Council Activity',
-          'Council Activity', a, detail, year);
+      _addDateEvents(results, campingCol, 'Campout', 'Campout', a, detail,
+          year, camping: true);
+      _addDateEvents(results, eventCol, 'Event', 'Event', a, detail, year);
+      _addDateEvents(results, specialEventCol, 'Special Event',
+          'Special Event', a, detail, year);
+      _addDateEvents(results, serviceProjectCol, 'Service Project',
+          'Service Project', a, detail, year);
 
-      final rtText = _cell(a, roundtableCol);
-      final rtDate = _monthDayDate(rtText, year);
-      if (rtDate != null) {
-        results.add(ProgramEventDraft(
-          title: _cell(detail, roundtableCol).isNotEmpty
-              ? _cell(detail, roundtableCol)
-              : 'Roundtable',
-          date: rtDate,
-          type: 'Roundtable',
-          notes: rtText,
-        ));
-      }
-
-      final oaText = _cell(a, oaCol);
-      final oaDate = _firstDate(oaText, year);
-      if (oaDate != null) {
-        results.add(ProgramEventDraft(
-          title: _cell(detail, oaCol).isNotEmpty ? _cell(detail, oaCol) : 'OA',
-          date: oaDate,
-          type: 'OA',
-          notes: oaText,
-        ));
-      }
-
-      final holidayText = _cell(a, holidayCol);
-      final holidayDate = _firstDate(holidayText, year);
-      if (holidayDate != null) {
-        results.add(ProgramEventDraft(
-          title: 'Holiday',
-          date: holidayDate,
-          type: 'Holiday',
-          notes: holidayText,
-        ));
-      }
+      results.addAll(_holidayEvents(_cell(a, holidayCol), year,
+          detailTitle: _cell(detail, holidayCol)));
     }
 
     return results;
   }
 
-  static void _addDateEvent(
+  static List<String> _detailRow(List<List<String>> rows, int index) {
+    if (index >= rows.length) return const <String>[];
+    final row = rows[index].map((c) => c.trim()).toList();
+    if (row.isEmpty) return const <String>[];
+    if (row[0].isNotEmpty) return const <String>[];
+    if (!row.any((c) => c.isNotEmpty)) return const <String>[];
+    return row;
+  }
+
+  static void _addDateEvents(
     List<ProgramEventDraft> results,
     int col,
     String type,
@@ -164,16 +132,56 @@ class ProgramGridParser {
   }) {
     if (col < 0) return;
     final text = _cell(a, col);
-    final date = _firstDate(text, year);
-    if (date == null) return;
+    final dates = _dateList(text, year);
+    if (dates.isEmpty) return;
     final name = _cell(detail, col);
-    results.add(ProgramEventDraft(
-      title: name.isNotEmpty ? name : fallbackTitle,
-      date: date,
-      type: type,
-      location: camping && name.isNotEmpty && name != fallbackTitle ? name : '',
-      notes: text.isNotEmpty ? text : '',
-    ));
+    for (final date in dates) {
+      results.add(ProgramEventDraft(
+        title: name.isNotEmpty ? name : fallbackTitle,
+        date: date,
+        type: type,
+        location: camping && name.isNotEmpty && name != fallbackTitle ? name : '',
+        notes: text.isNotEmpty ? text : '',
+      ));
+    }
+  }
+
+  static List<ProgramEventDraft> _holidayEvents(
+      String text, int year, {String detailTitle = ''}) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return const <ProgramEventDraft>[];
+
+    final dated = _dateList(trimmed, year);
+    if (dated.isNotEmpty) {
+      return [
+        for (final date in dated)
+          ProgramEventDraft(
+            title: detailTitle.isNotEmpty ? detailTitle : 'Holiday',
+            date: date,
+            type: 'Holiday',
+            notes: trimmed,
+          ),
+      ];
+    }
+
+    final resolved = <({String name, DateTime date})>[];
+    final norm = _normalize(trimmed);
+    for (final rule in _holidayRules) {
+      if (norm.contains(rule.search)) {
+        resolved.add((name: rule.name, date: rule.build(year)));
+      }
+    }
+    final seen = <String>{};
+    return [
+      for (final r in resolved)
+        if (seen.add('${r.name}|${r.date.toIso8601String()}'))
+          ProgramEventDraft(
+            title: r.name,
+            date: r.date,
+            type: 'Holiday',
+            notes: trimmed,
+          ),
+    ];
   }
 
   static bool _isMonthRow(List<String> row) =>
@@ -189,27 +197,46 @@ class ProgramGridParser {
     return DateTime.now().year;
   }
 
-  static DateTime? _firstDate(String text, int blockYear) {
-    final m = _datePattern.firstMatch(text);
-    if (m == null) return null;
-    final parts = m.group(0)!.split(RegExp(r'[/-]'));
-    if (parts.length < 3) return null;
-    final month = int.tryParse(parts[0]);
-    final day = int.tryParse(parts[1]);
-    final rawYear = int.tryParse(parts[2]);
-    if (month == null || day == null || rawYear == null) return null;
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    final year = rawYear < 100 ? blockYear : rawYear;
-    return DateTime(year, month, day);
+  static List<DateTime> _dateList(String text, int blockYear) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return const [];
+    final range = _rangePattern.firstMatch(trimmed);
+    if (range != null) {
+      final start = _parseDateCell(range.group(1)!, blockYear);
+      final end = _parseDateCell(range.group(2)!, blockYear);
+      if (start != null && end != null && !end.isBefore(start)) {
+        final days = <DateTime>[];
+        for (var d = start; !d.isAfter(end);
+            d = DateTime(d.year, d.month, d.day + 1)) {
+          days.add(d);
+        }
+        return days;
+      }
+    }
+    final single = _parseDateCell(trimmed, blockYear);
+    return single == null ? const [] : [single];
   }
 
-  static DateTime? _monthDayDate(String text, int year) {
-    final m = _monthDayPattern.firstMatch(text);
+  static DateTime? _parseDateCell(String text, int blockYear) {
+    final m = _digitDatePattern.firstMatch(text);
     if (m == null) return null;
-    final name = m.group(1)!.toLowerCase();
-    final month = _months.indexWhere((n) => n.toLowerCase() == name) + 1;
-    final day = int.tryParse(m.group(2)!);
-    if (month < 1 || day == null) return null;
+    final parts = m.group(0)!.split(RegExp(r'[/-]'));
+    if (parts.length < 2) return null;
+    final a = int.tryParse(parts[0]);
+    final b = int.tryParse(parts[1]);
+    if (a == null || b == null) return null;
+    var year = blockYear;
+    if (parts.length >= 3) {
+      final y = int.tryParse(parts[2]);
+      if (y == null) return null;
+      year = y < 100 ? blockYear : y;
+    }
+    var month = a, day = b;
+    if (month < 1 || month > 12) {
+      month = b;
+      day = a;
+    }
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
     return DateTime(year, month, day);
   }
 
@@ -218,6 +245,79 @@ class ProgramGridParser {
 
   static String _normalize(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  static DateTime _nthWeekday(int year, int month, int weekday, int n) {
+    final first = DateTime(year, month, 1);
+    final day = 1 + (weekday - first.weekday + 7) % 7 + (n - 1) * 7;
+    return DateTime(year, month, day);
+  }
+
+  static DateTime _lastWeekday(int year, int month, int weekday) {
+    final last = DateTime(year, month + 1, 0);
+    return last.subtract(Duration(days: (last.weekday - weekday + 7) % 7));
+  }
+
+  static DateTime _easter(int year) {
+    final a = year % 19;
+    final b = year ~/ 100;
+    final c = year % 100;
+    final d = b ~/ 4;
+    final e = b % 4;
+    final f = (b + 8) ~/ 25;
+    final g = (b - f + 1) ~/ 3;
+    final h = (19 * a + b - d - g + 15) % 30;
+    final i = c ~/ 4;
+    final k = c % 4;
+    final l = (32 + 2 * e + 2 * i - h - k) % 7;
+    final m = (a + 11 * h + 22 * l) ~/ 451;
+    final month = (h + l - 7 * m + 114) ~/ 31;
+    final day = ((h + l - 7 * m + 114) % 31) + 1;
+    return DateTime(year, month, day);
+  }
+
+  static final List<({String search, String name, DateTime Function(int) build})>
+      _holidayRules = [
+    (search: 'easter', name: 'Easter', build: _easter),
+    (search: 'ashwednesday', name: 'Ash Wednesday',
+        build: (year) {
+          final easter = _easter(year);
+          return DateTime(easter.year, easter.month, easter.day - 46);
+        }),
+    (search: 'newyearsday', name: "New Year's Day",
+        build: (year) => DateTime(year, 1, 1)),
+    (search: 'mlkjrday', name: 'MLK Jr Day',
+        build: (year) => _nthWeekday(year, 1, DateTime.monday, 3)),
+    (search: 'mlk', name: 'MLK Jr Day',
+        build: (year) => _nthWeekday(year, 1, DateTime.monday, 3)),
+    (search: 'presidentsday', name: "President's Day",
+        build: (year) => _nthWeekday(year, 2, DateTime.monday, 3)),
+    (search: 'memorialday', name: 'Memorial Day',
+        build: (year) => _lastWeekday(year, 5, DateTime.monday)),
+    (search: 'mothersday', name: "Mother's Day",
+        build: (year) => _nthWeekday(year, 5, DateTime.sunday, 2)),
+    (search: 'fathersday', name: "Father's Day",
+        build: (year) => _nthWeekday(year, 6, DateTime.sunday, 3)),
+    (search: 'juneteenth', name: 'Juneteenth',
+        build: (year) => DateTime(year, 6, 19)),
+    (search: 'fourthofjuly', name: 'Fourth of July',
+        build: (year) => DateTime(year, 7, 4)),
+    (search: 'july4', name: 'Fourth of July',
+        build: (year) => DateTime(year, 7, 4)),
+    (search: 'independence', name: 'Fourth of July',
+        build: (year) => DateTime(year, 7, 4)),
+    (search: 'laborday', name: 'Labor Day',
+        build: (year) => _nthWeekday(year, 9, DateTime.monday, 1)),
+    (search: 'columbusday', name: 'Columbus Day',
+        build: (year) => _nthWeekday(year, 10, DateTime.monday, 2)),
+    (search: 'veteransday', name: "Veterans Day",
+        build: (year) => DateTime(year, 11, 11)),
+    (search: 'veterans', name: "Veterans Day",
+        build: (year) => DateTime(year, 11, 11)),
+    (search: 'thanksgiving', name: 'Thanksgiving',
+        build: (year) => _nthWeekday(year, 11, DateTime.thursday, 4)),
+    (search: 'christmas', name: 'Christmas',
+        build: (year) => DateTime(year, 12, 25)),
+  ];
 }
 
 class _ColumnMap {
