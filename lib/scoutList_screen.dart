@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ScoutListScreen extends StatefulWidget {
   @override
@@ -11,6 +14,29 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
   String _selectedRank = 'Tenderfoot';
   List<Map<String, String>> _scouts = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadScouts();
+  }
+
+  Future<void> _loadScouts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString('scouts');
+    if (json != null) {
+      setState(() {
+        _scouts = (jsonDecode(json) as List)
+            .map((e) => Map<String, String>.from(e as Map))
+            .toList();
+      });
+    }
+  }
+
+  Future<void> _saveScouts() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('scouts', jsonEncode(_scouts));
+  }
+
   void _addScout() {
     if (_nameController.text.trim().isEmpty) return;
     setState(() {
@@ -22,6 +48,7 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
       _nameController.clear();
       _patrolController.clear();
     });
+    _saveScouts();
   }
 
   @override
