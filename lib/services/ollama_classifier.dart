@@ -74,7 +74,10 @@ class ProgramTypeClassifier {
   static List<ProgramEventDraft> applyKeywords(List<ProgramEventDraft> drafts) {
     return [
       for (final draft in drafts)
-        draft.copyWith(type: keywordType(draft.title, draft.type)),
+        if (draft.type.trim().toLowerCase() == 'meeting')
+          draft
+        else
+          draft.copyWith(type: keywordType(draft.title, draft.type)),
     ];
   }
 }

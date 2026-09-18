@@ -69,6 +69,31 @@ final drafts = [
         reason: 'no keyword matches, original type is preserved');
   });
 
+  test('weekly meetings keep their Meeting type, keywords never hijack them',
+      () {
+    final drafts = [
+      ProgramEventDraft(
+        title: 'Klondike Prep',
+        date: DateTime(2027, 2, 3),
+        type: 'Meeting',
+      ),
+      ProgramEventDraft(
+        title: 'NO MEETING (Ash Wednesday)',
+        date: DateTime(2027, 2, 10),
+        type: 'Meeting',
+      ),
+      ProgramEventDraft(
+        title: 'B & G Pool Party / Swim Tests',
+        date: DateTime(2027, 2, 24),
+        type: 'Meeting',
+      ),
+    ];
+    final result = ProgramTypeClassifier.applyKeywords(drafts);
+    expect(result.map((d) => d.type).toSet(), {'Meeting'},
+        reason: 'week-meeting rows are already typed Meeting by the parser '
+            'and must not be reclassified by title keywords');
+  });
+
   test('ollama classifier returns empty map when host is unreachable', () async {
     final classifier = OllamaTypeClassifier(
       host: 'http://127.0.0.1:1',
