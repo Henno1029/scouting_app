@@ -14,6 +14,92 @@ class ProgramEventDraft {
     this.location = '',
     this.notes = '',
   });
+
+  ProgramEventDraft copyWith({
+    String? title,
+    DateTime? date,
+    String? type,
+    String? location,
+    String? notes,
+  }) {
+    return ProgramEventDraft(
+      title: title ?? this.title,
+      date: date ?? this.date,
+      type: type ?? this.type,
+      location: location ?? this.location,
+      notes: notes ?? this.notes,
+    );
+  }
+}
+
+class ProgramGridLayout {
+  final int headerRow;
+  final int monthCol;
+  final int featureCol;
+  final List<int> weekCols;
+
+  /// Column index for Camping/Campout dates, -1 to ignore.
+  final int campingCol;
+
+  /// Column index for general events, -1 to ignore.
+  final int eventCol;
+
+  /// Column index for holidays (names/dates), -1 to ignore.
+  final int holidayCol;
+
+  /// Column index for Service Project column, -1 to ignore.
+  final int serviceProjectCol;
+
+  /// Column index for Special Event column, -1 to ignore.
+  final int specialEventCol;
+
+  /// Rows below the month row where the per-week dates live (0 = same row).
+  final int dateRowOffset;
+
+  /// Rows below the month row where the activity names live (1 = next row).
+  final int detailRowOffset;
+
+  const ProgramGridLayout({
+    this.headerRow = 0,
+    this.monthCol = 0,
+    this.featureCol = 1,
+    this.weekCols = const [2, 3, 4, 5, 6],
+    this.campingCol = 7,
+    this.eventCol = 8,
+    this.holidayCol = 10,
+    this.serviceProjectCol = 11,
+    this.specialEventCol = 12,
+    this.dateRowOffset = 0,
+    this.detailRowOffset = 1,
+  });
+
+  ProgramGridLayout copyWith({
+    int? headerRow,
+    int? monthCol,
+    int? featureCol,
+    List<int>? weekCols,
+    int? campingCol,
+    int? eventCol,
+    int? holidayCol,
+    int? serviceProjectCol,
+    int? specialEventCol,
+    int? dateRowOffset,
+    int? detailRowOffset,
+  }) {
+    return ProgramGridLayout(
+      headerRow: headerRow ?? this.headerRow,
+      monthCol: monthCol ?? this.monthCol,
+      featureCol: featureCol ?? this.featureCol,
+      weekCols: weekCols ?? this.weekCols,
+      campingCol: campingCol ?? this.campingCol,
+      eventCol: eventCol ?? this.eventCol,
+      holidayCol: holidayCol ?? this.holidayCol,
+      serviceProjectCol: serviceProjectCol ?? this.serviceProjectCol,
+      specialEventCol: specialEventCol ?? this.specialEventCol,
+      dateRowOffset: dateRowOffset ?? this.dateRowOffset,
+      detailRowOffset: detailRowOffset ?? this.detailRowOffset,
+    );
+  }
 }
 
 class ProgramGridParser {
@@ -30,8 +116,11 @@ class ProgramGridParser {
     r'(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)\s*$',
   );
 
-  static List<List<String>> toRows(List<List<String>> rows) {
-    final drafts = parse(rows);
+  static List<List<String>> toRows(
+    List<List<String>> rows, {
+    ProgramGridLayout? layout,
+  }) {
+    final drafts = parse(rows, layout: layout);
     return [
       const ['Date', 'Title', 'Type', 'Location', 'Notes'],
       ...drafts.map((d) {
@@ -48,44 +137,38 @@ class ProgramGridParser {
     ];
   }
 
-  static List<ProgramEventDraft> parse(List<List<String>> rows) {
+  static List<ProgramEventDraft> parse(
+    List<List<String>> rows, {
+    ProgramGridLayout? layout,
+  }) {
     final results = <ProgramEventDraft>[];
     if (rows.isEmpty) return results;
 
-    int headerIndex = -1;
-    for (var i = 0; i < rows.length; i++) {
-      final row = rows[i];
-      if (row.any((c) => _normalize(c) == 'week1') &&
-          row.any((c) => _normalize(c) == 'camping')) {
-        headerIndex = i;
-        break;
-      }
-    }
-    if (headerIndex < 0) return results;
+    final detected = layout ?? detect(rows);
+    final firstDataRow = detected.headerRow + 1;
+    if (firstDataRow >= rows.length) return results;
 
-    final headers = rows[headerIndex];
-    final mapCols = _ColumnMap(headers);
+    final monthCol = detected.monthCol;
+    final featureCol = detected.featureCol;
+    final weekCols = detected.weekCols;
+    final dateRowOffset = detected.dateRowOffset;
+    final detailRowOffset = detected.detailRowOffset;
 
-    final weekCols =
-        [1, 2, 3, 4, 5].map((i) => mapCols.index('Week $i')).toList();
-    final featureCol = mapCols.index('Program Feature');
-    final campingCol = mapCols.index('Camping');
-    final eventCol = mapCols.index('Event');
-    final specialEventCol = mapCols.index('Special Event');
-    final serviceProjectCol = mapCols.index('Service Project');
-    final holidayCol = mapCols.index('Holiday');
-
-    for (var i = headerIndex + 1; i < rows.length; i++) {
+    for (var i = firstDataRow; i < rows.length; i++) {
       final a = rows[i];
-      if (!_isMonthRow(a)) continue;
-      final detail = _detailRow(rows, i + 1);
-      final year = _yearFrom(a, detail);
-      final feature = _cell(a, featureCol);
+      if (!_isMonthRow(a, monthCol)) continue;
+      final dateRowIndex = i + dateRowOffset;
+      final dateRow =
+          dateRowIndex < rows.length ? rows[dateRowIndex] : const <String>[];
+      final detailRowIndex = i + detailRowOffset;
+      final detail = _detailRow(rows, detailRowIndex);
+      final year = _yearFrom(dateRow, detail);
+      final feature = _cell(dateRow, featureCol);
 
       for (var w = 0; w < weekCols.length; w++) {
         final c = weekCols[w];
         if (c < 0) continue;
-        final date = AppDates.parse(_cell(a, c));
+        final date = AppDates.parse(_cell(dateRow, c));
         if (date == null) continue;
         final activity = _cell(detail, c);
         results.add(ProgramEventDraft(
@@ -96,19 +179,51 @@ class ProgramGridParser {
         ));
       }
 
-      _addDateEvents(results, campingCol, 'Campout', 'Campout', a, detail,
-          year, camping: true);
-      _addDateEvents(results, eventCol, 'Event', 'Event', a, detail, year);
-      _addDateEvents(results, specialEventCol, 'Special Event',
-          'Special Event', a, detail, year);
-      _addDateEvents(results, serviceProjectCol, 'Service Project',
-          'Service Project', a, detail, year);
+      _addDateEvents(results, detected.campingCol, 'Campout', 'Campout', dateRow,
+          detail, year,
+          camping: true);
+      _addDateEvents(
+          results, detected.eventCol, 'Event', 'Event', dateRow, detail, year);
+      _addDateEvents(results, detected.specialEventCol, 'Special Event',
+          'Special Event', dateRow, detail, year);
+      _addDateEvents(results, detected.serviceProjectCol, 'Service Project',
+          'Service Project', dateRow, detail, year);
 
-      results.addAll(_holidayEvents(_cell(a, holidayCol), year,
-          detailTitle: _cell(detail, holidayCol)));
+      results.addAll(_holidayEvents(_cell(dateRow, detected.holidayCol), year,
+          detailTitle: _cell(detail, detected.holidayCol)));
     }
 
     return results;
+  }
+
+  static ProgramGridLayout detect(List<List<String>> rows) {
+    int headerIndex = -1;
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      if (row.any((c) => _normalize(c) == 'week1') &&
+          row.any((c) => _normalize(c) == 'camping')) {
+        headerIndex = i;
+        break;
+      }
+    }
+
+    final layout = const ProgramGridLayout();
+    if (headerIndex < 0) return layout;
+    final headers = rows[headerIndex];
+    final mapCols = _ColumnMap(headers);
+    final weekCols =
+        [1, 2, 3, 4, 5].map((i) => mapCols.index('Week $i')).toList();
+    return ProgramGridLayout(
+      headerRow: headerIndex,
+      monthCol: mapCols.index('Month') >= 0 ? mapCols.index('Month') : 0,
+      featureCol: mapCols.index('Program Feature'),
+      weekCols: weekCols,
+      campingCol: mapCols.index('Camping'),
+      eventCol: mapCols.index('Event'),
+      holidayCol: mapCols.index('Holiday'),
+      serviceProjectCol: mapCols.index('Service Project'),
+      specialEventCol: mapCols.index('Special Event'),
+    );
   }
 
   static List<String> _detailRow(List<List<String>> rows, int index) {
@@ -184,8 +299,11 @@ class ProgramGridParser {
     ];
   }
 
-  static bool _isMonthRow(List<String> row) =>
-      row.isNotEmpty && _months.contains(row[0].trim());
+  static bool _isMonthRow(List<String> row, int monthCol) =>
+      row.isNotEmpty &&
+      monthCol >= 0 &&
+      monthCol < row.length &&
+      _months.contains(row[monthCol].trim());
 
   static int _yearFrom(List<String> a, List<String> detail) {
     for (final cell in [...a, ...detail]) {

@@ -121,4 +121,49 @@ void main() {
       reason: 'every imported row needs a real date',
     );
   });
+
+  test('detect() recovers the column layout from the header row', () {
+    final rows = CsvImportService.decodeRows(_fixture);
+    final layout = ProgramGridParser.detect(rows);
+
+    expect(layout.headerRow, 0);
+    expect(layout.monthCol, 0);
+    expect(layout.featureCol, 1);
+    expect(layout.weekCols, [2, 3, 4, 5, 6]);
+    expect(layout.campingCol, 7);
+    expect(layout.holidayCol, 10);
+    expect(layout.serviceProjectCol, 11);
+    expect(layout.specialEventCol, 12);
+  });
+
+  test('parse() honors a shifted activity row', () {
+    final raw = '''
+Month\tProgram Feature\tWeek 1\tWeek 2\tWeek 3\tWeek 4\tWeek 5\tCamping
+March\tBackpacking\t\t\t\t\t\t
+\t\tHike out\tHike in\tTent setup\t\t\t
+\t\t3/5/2027\t3/12/2027\t3/19/2027\t\t\t
+''';
+    final rows = CsvImportService.decodeRows(raw);
+    final layout = ProgramGridLayout(
+      headerRow: 0,
+      monthCol: 0,
+      featureCol: 1,
+      weekCols: const [2, 3, 4, 5, 6],
+      campingCol: 7,
+      eventCol: -1,
+      holidayCol: -1,
+      serviceProjectCol: -1,
+      specialEventCol: -1,
+      dateRowOffset: 2,
+      detailRowOffset: 1,
+    );
+    final drafts = ProgramGridParser.parse(rows, layout: layout);
+
+    expect(drafts, isNotEmpty);
+    final meetings = drafts.where((d) => d.type == 'Meeting').toList();
+    expect(meetings.length, 3,
+        reason: 'only dates present on the configured date row');
+    expect(meetings.first.title, 'Hike out');
+    expect(meetings.first.date, DateTime(2027, 3, 5));
+  });
 }

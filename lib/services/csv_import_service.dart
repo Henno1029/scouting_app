@@ -32,6 +32,11 @@ class ImportTarget {
   final List<ImportField> fields;
   final Map<String, String> preset;
 
+  /// True when the file is the troop planning-calendar grid, which the
+  /// import screen edits with month/week/feature column pickers instead of
+  /// the generic field mapper.
+  final bool isGridLayout;
+
   const ImportTarget({
     required this.id,
     required this.label,
@@ -39,6 +44,7 @@ class ImportTarget {
     required this.storageKey,
     required this.fields,
     this.preset = const {},
+    this.isGridLayout = false,
   });
 
   ImportField? fieldByKey(String key) {
@@ -138,6 +144,7 @@ class CsvImportService {
       label: 'Program Calendar',
       description: 'Draft program calendar (date, title, type)',
       storageKey: 'import_calendar',
+      isGridLayout: true,
       fields: [
         ImportField('date', 'Date', required: true),
         ImportField('title', 'Title', required: true),
@@ -158,6 +165,7 @@ class CsvImportService {
       label: 'Program Grid',
       description: 'Troop annual planning sheet (auto-parsed)',
       storageKey: 'import_program_grid',
+      isGridLayout: true,
       fields: [
         ImportField('date', 'Date', required: true),
         ImportField('title', 'Title', required: true),
