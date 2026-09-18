@@ -130,6 +130,13 @@ class _EventListScreenState extends State<EventListScreen> {
     });
   }
 
+  void _goToToday() {
+    setState(() {
+      final now = DateTime.now();
+      _view = DateTime(now.year, now.month, 1);
+    });
+  }
+
   String get _title => _yearView
       ? '${_view.year}'
       : '${_monthNames[_view.month - 1]} ${_view.year}';
@@ -208,6 +215,11 @@ class _EventListScreenState extends State<EventListScreen> {
                   tooltip: 'Next',
                   onPressed: _next,
                 ),
+                TextButton.icon(
+                  icon: const Icon(Icons.today, size: 18),
+                  label: const Text('Today'),
+                  onPressed: _goToToday,
+                ),
               ],
             ),
             Padding(
@@ -245,6 +257,15 @@ class _EventListScreenState extends State<EventListScreen> {
                         : '${_hiddenTypes.length} type(s) hidden',
                     onPressed: _showTypeFilterDialog,
                   ),
+                  if (_yearView) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.delete_sweep_outlined),
+                      color: AppTheme.scoutingRed,
+                      tooltip: 'Delete all events for ${_view.year}',
+                      onPressed: _confirmDeleteAllForYear,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -467,14 +488,26 @@ class _EventListScreenState extends State<EventListScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 8, bottom: 4),
-          child: Text(
-            'Events this month',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.scoutingDarkBlue,
-            ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 4),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Events this month',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.scoutingDarkBlue,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_sweep_outlined),
+                color: AppTheme.scoutingRed,
+                tooltip: 'Delete all events for ${_monthNames[_view.month - 1]}',
+                onPressed: () => _confirmDeleteAllForMonth(monthEvents),
+              ),
+            ],
           ),
         ),
         Card(
@@ -625,6 +658,71 @@ class _EventListScreenState extends State<EventListScreen> {
     );
   }
 
+  Future<void> _confirmDeleteAllForMonth(List<Event> events) async {
+    final monthName = _monthNames[_view.month - 1];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete all events for this month?'),
+        content: Text(
+          'This will permanently remove all ${events.length} event(s) in $monthName ${_view.year}, including imported ones.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Delete all',
+              style: TextStyle(color: AppTheme.scoutingRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    for (final event in events) {
+      await EventService.delete(event.id);
+    }
+    await _load();
+  }
+
+  Future<void> _confirmDeleteAllForYear() async {
+    final yearEvents = _displayEvents
+        .where((e) => e.date != null && e.date!.year == _view.year)
+        .toList();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete all events for this year?'),
+        content: Text(
+          'This will permanently remove all ${yearEvents.length} event(s) in '
+          '${_view.year}, including imported ones.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Delete all',
+              style: TextStyle(color: AppTheme.scoutingRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    for (final event in yearEvents) {
+      await EventService.delete(event.id);
+    }
+    await _load();
+  }
+
   Future<void> _showDaySheet(DateTime day) async {
     final events = _eventsOn(day);
     await showModalBottomSheet<void>(
@@ -727,6 +825,7 @@ class _EventListScreenState extends State<EventListScreen> {
                         DropdownMenuItem(value: 'Service', child: Text('Service')),
                         DropdownMenuItem(value: 'Fundraiser', child: Text('Fundraiser')),
                         DropdownMenuItem(value: 'Court of Honor', child: Text('Court of Honor')),
+                        DropdownMenuItem(value: 'Elections', child: Text('Elections')),
                         DropdownMenuItem(value: 'Other', child: Text('Other')),
                       ],
                       onChanged: (value) =>

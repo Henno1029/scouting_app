@@ -4,10 +4,10 @@ import 'package:scouting_app/services/program_grid_parser.dart';
 
 const _fixture = '''
 Month\tProgram Feature\tWeek 1\tWeek 2\tWeek 3\tWeek 4\tWeek 5\tCamping\tEvent\tTasks\tHoliday\tService Project\tSpecial Event\tCouncil Activity\tPLC\tCommittee\tRoundtable\tOther\tHunting\tOA
-January\tSkills for Klondike\t1/6/2027\t1/13/2027\t1/20/2027\t1/27/2027\t\t1/15-1/17\t1/9/2027\tBook Klondike\tNew Year's Day MLK Jr Day\t\t1/14/2027\t\t1/12/2027\tDecember 8\tJanuary 19\t\t1/23/2027\t1/10/2027
-\t\tSled assessment\tSled repair\tKnots\tFirst Aid\t\tJennings\tPolar Bear Night\t\t\t\tWreaths cleanup\t\t\t\t\t\t\t
-February\tSkills for First Aid Meet\t2/3/2027\t2/10/2027\t2/17/2027\t2/24/2027\t\t2/5/27-2/7/27\t\tBook First Aid Meet\tPresident's Day, Ash Wednesday\t\t\tKlondike\t\t\tFebruary 11\t\t2/19-2/21\t
-\t\tKlondike Prep\tNO MEETING\tFirst Aid skill\tB & G Pool Party\t\tKlondike\t\t\t\t\t\t\t\t\t\t\t\t
+January\tSkills for Klondike\t1/6/2027\t1/13/2027\t1/20/2027\t1/27/2027\t\t1/15-1/17\t1/9/2027\tBook Klondike\tNew Year's Day MLK Jr Day\t\t1/14/2027\t1/4/2027\t1/12/2027\tDecember 8\tJanuary 19\t\t1/23/2027\t1/10/2027
+\t\tSled assessment\tSled repair\tKnots\tFirst Aid\t\tJennings\tPolar Bear Night\t\t\t\tWreaths cleanup\tCouncil meeting\t\t\t\t\t\t
+February\tSkills for First Aid Meet\t2/3/2027\t2/10/2027\t2/17/2027\t2/24/2027\t\t2/5/27-2/7/27\t\tBook First Aid Meet\tPresident's Day, Ash Wednesday\t\t\t1/7/2027\t\t\tFebruary 11\t\t2/19-2/21\t
+\t\tKlondike Prep\tNO MEETING\tFirst Aid skill\tB & G Pool Party\t\tKlondike\t\t\t\t\t\t\t\t\t\t\t\t\t
 ''';
 
 void main() {
@@ -87,17 +87,53 @@ void main() {
     expect(holidays.first.title, "New Year's Day");
   });
 
-  test('only the meaningful columns are imported', () {
+  test('every dated planning column is imported', () {
     final types = drafts.map((d) => d.type).toSet();
-    expect(types, containsAll(['Meeting', 'Campout', 'Event', 'Special Event',
-        'Holiday']));
+    expect(types, containsAll([
+      'Meeting', 'Campout', 'Event', 'Special Event', 'Holiday',
+      'Council Activity', 'PLC', 'Committee', 'Roundtable', 'Hunting', 'OA',
+    ]));
+  });
+
+  test('named-month text dates resolve for council/committee/roundtable', () {
+    final roundtables = drafts
+        .where((d) => d.type == 'Roundtable')
+        .toList();
+    expect(roundtables.map((d) => d.date), containsAll([
+      DateTime(2027, 1, 19),
+    ]));
+
+    final committees = drafts.where((d) => d.type == 'Committee').toList();
+    expect(committees.map((d) => d.date), containsAll([
+      DateTime(2027, 12, 8),
+    ]));
+  });
+
+  test('PLC, OA and hunting columns import their single dates', () {
     expect(
-      types.intersection({
-        'PLC', 'Committee', 'Roundtable', 'Council Activity', 'OA',
-        'Hunting', 'Other',
-      }),
-      isEmpty,
-      reason: 'planning-only columns should not clutter the calendar',
+      drafts.where((d) => d.type == 'PLC').map((d) => d.date),
+      containsAll([DateTime(2027, 1, 12)]),
+    );
+    expect(
+      drafts.where((d) => d.type == 'OA').map((d) => d.date),
+      containsAll([DateTime(2027, 1, 10)]),
+    );
+    final hunting = drafts.where((d) => d.type == 'Hunting').toList();
+    expect(hunting.map((d) => d.date), containsAll([
+      DateTime(2027, 1, 23),
+      DateTime(2027, 2, 19),
+      DateTime(2027, 2, 20),
+      DateTime(2027, 2, 21),
+    ]));
+  });
+
+  test('council activity column imports its dedicated date', () {
+    expect(
+      drafts.where((d) => d.type == 'Council Activity').map((d) => d.date),
+      containsAll([
+        DateTime(2027, 1, 4),
+        DateTime(2027, 1, 7),
+      ]),
     );
   });
 
@@ -131,9 +167,18 @@ void main() {
     expect(layout.featureCol, 1);
     expect(layout.weekCols, [2, 3, 4, 5, 6]);
     expect(layout.campingCol, 7);
+    expect(layout.eventCol, 8);
+    expect(layout.tasksCol, 9);
     expect(layout.holidayCol, 10);
     expect(layout.serviceProjectCol, 11);
     expect(layout.specialEventCol, 12);
+    expect(layout.councilCol, 13);
+    expect(layout.plcCol, 14);
+    expect(layout.committeeCol, 15);
+    expect(layout.roundtableCol, 16);
+    expect(layout.otherCol, 17);
+    expect(layout.huntingCol, 18);
+    expect(layout.oaCol, 19);
   });
 
   test('parse() honors a shifted activity row', () {

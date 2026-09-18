@@ -13,6 +13,18 @@ void main() {
       'Court of Honor',
     );
     expect(
+      ProgramTypeClassifier.keywordType('Court Of Honor Dinner', 'Event'),
+      'Court of Honor',
+    );
+    expect(
+      ProgramTypeClassifier.keywordType('Troop Elections', 'Event'),
+      'Elections',
+    );
+    expect(
+      ProgramTypeClassifier.keywordType('Youth Leadership Election', 'Event'),
+      'Elections',
+    );
+    expect(
       ProgramTypeClassifier.keywordType('Klondike Camp', 'Event'),
       'Campout',
     );

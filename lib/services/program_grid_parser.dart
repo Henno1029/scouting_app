@@ -53,6 +53,30 @@ class ProgramGridLayout {
   /// Column index for Special Event column, -1 to ignore.
   final int specialEventCol;
 
+  /// Column index for Tasks column, -1 to ignore.
+  final int tasksCol;
+
+  /// Column index for Council Activity column, -1 to ignore.
+  final int councilCol;
+
+  /// Column index for PLC column, -1 to ignore.
+  final int plcCol;
+
+  /// Column index for Committee column, -1 to ignore.
+  final int committeeCol;
+
+  /// Column index for Roundtable column, -1 to ignore.
+  final int roundtableCol;
+
+  /// Column index for Other column, -1 to ignore.
+  final int otherCol;
+
+  /// Column index for Hunting column, -1 to ignore.
+  final int huntingCol;
+
+  /// Column index for OA column, -1 to ignore.
+  final int oaCol;
+
   /// Rows below the month row where the per-week dates live (0 = same row).
   final int dateRowOffset;
 
@@ -66,9 +90,17 @@ class ProgramGridLayout {
     this.weekCols = const [2, 3, 4, 5, 6],
     this.campingCol = 7,
     this.eventCol = 8,
+    this.tasksCol = 9,
     this.holidayCol = 10,
     this.serviceProjectCol = 11,
     this.specialEventCol = 12,
+    this.councilCol = 13,
+    this.plcCol = 14,
+    this.committeeCol = 15,
+    this.roundtableCol = 16,
+    this.otherCol = 17,
+    this.huntingCol = 18,
+    this.oaCol = 19,
     this.dateRowOffset = 0,
     this.detailRowOffset = 1,
   });
@@ -83,6 +115,14 @@ class ProgramGridLayout {
     int? holidayCol,
     int? serviceProjectCol,
     int? specialEventCol,
+    int? tasksCol,
+    int? councilCol,
+    int? plcCol,
+    int? committeeCol,
+    int? roundtableCol,
+    int? otherCol,
+    int? huntingCol,
+    int? oaCol,
     int? dateRowOffset,
     int? detailRowOffset,
   }) {
@@ -96,6 +136,14 @@ class ProgramGridLayout {
       holidayCol: holidayCol ?? this.holidayCol,
       serviceProjectCol: serviceProjectCol ?? this.serviceProjectCol,
       specialEventCol: specialEventCol ?? this.specialEventCol,
+      tasksCol: tasksCol ?? this.tasksCol,
+      councilCol: councilCol ?? this.councilCol,
+      plcCol: plcCol ?? this.plcCol,
+      committeeCol: committeeCol ?? this.committeeCol,
+      roundtableCol: roundtableCol ?? this.roundtableCol,
+      otherCol: otherCol ?? this.otherCol,
+      huntingCol: huntingCol ?? this.huntingCol,
+      oaCol: oaCol ?? this.oaCol,
       dateRowOffset: dateRowOffset ?? this.dateRowOffset,
       detailRowOffset: detailRowOffset ?? this.detailRowOffset,
     );
@@ -114,6 +162,14 @@ class ProgramGridParser {
   static final RegExp _rangePattern = RegExp(
     r'^\s*(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)\s*-\s*'
     r'(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)\s*$',
+  );
+
+  static final RegExp _namedMonthPattern = RegExp(
+    r'\b(January|February|March|April|May|June|July|August|September|'
+    r'October|November|December|'
+    r'Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+'
+    r'(\d{1,2})\b',
+    caseSensitive: false,
   );
 
   static List<List<String>> toRows(
@@ -188,6 +244,21 @@ class ProgramGridParser {
           'Special Event', dateRow, detail, year);
       _addDateEvents(results, detected.serviceProjectCol, 'Service Project',
           'Service Project', dateRow, detail, year);
+      _addDateEvents(results, detected.tasksCol, 'Task', 'Task', dateRow,
+          detail, year);
+      _addDateEvents(results, detected.councilCol, 'Council Activity',
+          'Council Activity', dateRow, detail, year);
+      _addDateEvents(results, detected.plcCol, 'PLC', 'PLC', dateRow, detail,
+          year);
+      _addDateEvents(results, detected.committeeCol, 'Committee', 'Committee',
+          dateRow, detail, year);
+      _addDateEvents(results, detected.roundtableCol, 'Roundtable', 'Roundtable',
+          dateRow, detail, year);
+      _addDateEvents(results, detected.otherCol, 'Other', 'Other', dateRow,
+          detail, year);
+      _addDateEvents(results, detected.huntingCol, 'Hunting', 'Hunting', dateRow,
+          detail, year);
+      _addDateEvents(results, detected.oaCol, 'OA', 'OA', dateRow, detail, year);
 
       results.addAll(_holidayEvents(_cell(dateRow, detected.holidayCol), year,
           detailTitle: _cell(detail, detected.holidayCol)));
@@ -220,9 +291,17 @@ class ProgramGridParser {
       weekCols: weekCols,
       campingCol: mapCols.index('Camping'),
       eventCol: mapCols.index('Event'),
+      tasksCol: mapCols.index('Tasks'),
       holidayCol: mapCols.index('Holiday'),
       serviceProjectCol: mapCols.index('Service Project'),
       specialEventCol: mapCols.index('Special Event'),
+      councilCol: mapCols.index('Council Activity'),
+      plcCol: mapCols.index('PLC'),
+      committeeCol: mapCols.index('Committee'),
+      roundtableCol: mapCols.index('Roundtable'),
+      otherCol: mapCols.index('Other'),
+      huntingCol: mapCols.index('Hunting'),
+      oaCol: mapCols.index('OA'),
     );
   }
 
@@ -337,25 +416,38 @@ class ProgramGridParser {
 
   static DateTime? _parseDateCell(String text, int blockYear) {
     final m = _digitDatePattern.firstMatch(text);
-    if (m == null) return null;
-    final parts = m.group(0)!.split(RegExp(r'[/-]'));
-    if (parts.length < 2) return null;
-    final a = int.tryParse(parts[0]);
-    final b = int.tryParse(parts[1]);
-    if (a == null || b == null) return null;
-    var year = blockYear;
-    if (parts.length >= 3) {
-      final y = int.tryParse(parts[2]);
-      if (y == null) return null;
-      year = y < 100 ? blockYear : y;
+    if (m != null) {
+      final parts = m.group(0)!.split(RegExp(r'[/-]'));
+      if (parts.length >= 2) {
+        final a = int.tryParse(parts[0]);
+        final b = int.tryParse(parts[1]);
+        if (a != null && b != null) {
+          var year = blockYear;
+          if (parts.length >= 3) {
+            final y = int.tryParse(parts[2]);
+            if (y == null) return null;
+            year = y < 100 ? blockYear : y;
+          }
+          var month = a, day = b;
+          if (month < 1 || month > 12) {
+            month = b;
+            day = a;
+          }
+          if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+          return DateTime(year, month, day);
+        }
+      }
     }
-    var month = a, day = b;
-    if (month < 1 || month > 12) {
-      month = b;
-      day = a;
+    final named = _namedMonthPattern.firstMatch(text);
+    if (named != null) {
+      final month = _months.indexWhere((name) =>
+          name.toLowerCase().startsWith(named.group(1)!.toLowerCase()));
+      final day = int.tryParse(named.group(2)!);
+      if (month >= 0 && day != null && day >= 1 && day <= 31) {
+        return DateTime(blockYear, month + 1, day);
+      }
     }
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return DateTime(year, month, day);
+    return null;
   }
 
   static String _cell(List<String> row, int index) =>

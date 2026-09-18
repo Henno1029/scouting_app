@@ -104,10 +104,11 @@ void main() {
     expect(
       types.intersection({
         'PLC', 'Committee', 'Roundtable', 'Council Activity', 'OA',
-        'Hunting', 'Other',
+        'Hunting', 'Other', 'Task',
       }),
-      isEmpty,
-      reason: 'planning-only columns are not imported as events',
+      isNotEmpty,
+      reason: 'every dated planning column is imported, not just the '
+          'weekly meetings/campouts/events',
     );
   });
 }

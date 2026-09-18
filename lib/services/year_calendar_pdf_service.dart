@@ -24,6 +24,8 @@ class YearCalendarPdfService {
     'holiday': PdfColor.fromInt(0xFFFBEAEB),
     'specialevent': PdfColor.fromInt(0xFFE3E0DA),
     'event': PdfColor.fromInt(0xFFE3E0DA),
+    'courtofhonor': PdfColor.fromInt(0xFFEED7C9),
+    'elections': PdfColor.fromInt(0xFFCDE7E0),
   };
   static final PdfColor _typeFallback = PdfColor.fromInt(0xFFEAEAE6);
 

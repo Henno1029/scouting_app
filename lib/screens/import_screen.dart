@@ -399,6 +399,22 @@ class _ImportScreenState extends State<ImportScreen> {
         _setLayout(_gridLayout.copyWith(serviceProjectCol: value));
       case 'special':
         _setLayout(_gridLayout.copyWith(specialEventCol: value));
+      case 'tasks':
+        _setLayout(_gridLayout.copyWith(tasksCol: value));
+      case 'council':
+        _setLayout(_gridLayout.copyWith(councilCol: value));
+      case 'plc':
+        _setLayout(_gridLayout.copyWith(plcCol: value));
+      case 'committee':
+        _setLayout(_gridLayout.copyWith(committeeCol: value));
+      case 'roundtable':
+        _setLayout(_gridLayout.copyWith(roundtableCol: value));
+      case 'other':
+        _setLayout(_gridLayout.copyWith(otherCol: value));
+      case 'hunting':
+        _setLayout(_gridLayout.copyWith(huntingCol: value));
+      case 'oa':
+        _setLayout(_gridLayout.copyWith(oaCol: value));
     }
   }
 
@@ -466,6 +482,22 @@ class _ImportScreenState extends State<ImportScreen> {
                 (value) => _setColumn('service', value)),
             _roleRow('Special Event column', _gridLayout.specialEventCol,
                 (value) => _setColumn('special', value)),
+            _roleRow('Tasks column', _gridLayout.tasksCol,
+                (value) => _setColumn('tasks', value)),
+            _roleRow('Council Activity column', _gridLayout.councilCol,
+                (value) => _setColumn('council', value)),
+            _roleRow('PLC column', _gridLayout.plcCol,
+                (value) => _setColumn('plc', value)),
+            _roleRow('Committee column', _gridLayout.committeeCol,
+                (value) => _setColumn('committee', value)),
+            _roleRow('Roundtable column', _gridLayout.roundtableCol,
+                (value) => _setColumn('roundtable', value)),
+            _roleRow('Other column', _gridLayout.otherCol,
+                (value) => _setColumn('other', value)),
+            _roleRow('Hunting column', _gridLayout.huntingCol,
+                (value) => _setColumn('hunting', value)),
+            _roleRow('OA column', _gridLayout.oaCol,
+                (value) => _setColumn('oa', value)),
             const SizedBox(height: 8),
             _offsetRow(
               'Week dates row (below the month row)',

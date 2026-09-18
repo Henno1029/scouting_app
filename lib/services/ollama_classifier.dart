@@ -10,6 +10,7 @@ class ProgramTypeClassifier {
     'Meeting',
     'Campout',
     'Court of Honor',
+    'Elections',
     'Holiday',
     'Service Project',
     'Special Event',
@@ -25,6 +26,9 @@ class ProgramTypeClassifier {
     final t = title.toLowerCase();
     if (t.contains('court of honor') || t.contains('coh')) {
       return 'Court of Honor';
+    }
+    if (t.contains('election') || t.contains('vote') || t.contains('ballot')) {
+      return 'Elections';
     }
     if (t.contains('no meeting')) return 'No Meeting';
     if (t.contains('fundraiser') ||

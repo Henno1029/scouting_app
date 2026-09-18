@@ -25,6 +25,8 @@ class AppTheme {
     'holiday': Color(0xFFFBEAEB),
     'specialevent': Color(0xFFE3E0DA),
     'event': Color(0xFFE3E0DA),
+    'courtofhonor': Color(0xFFEED7C9),
+    'elections': Color(0xFFCDE7E0),
   };
 
   static const Color _eventTypeFallback = Color(0xFFEAEAE6);
