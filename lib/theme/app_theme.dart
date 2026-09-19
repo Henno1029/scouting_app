@@ -19,7 +19,7 @@ class AppTheme {
     'camping': Color(0xFFD9EAD3),
     'plc': Color(0xFFE4DCF1),
     'committee': Color(0xFFD5EFEF),
-    'roundtable': Color(0xFFF3E3C6),
+    'roundtable': Color(0xFFF3C98B),
     'councilactivity': Color(0xFFF5DCE7),
     'oa': Color(0xFFF0E8C4),
     'holiday': Color(0xFFFBEAEB),
@@ -27,6 +27,10 @@ class AppTheme {
     'event': Color(0xFFE3E0DA),
     'courtofhonor': Color(0xFFEED7C9),
     'elections': Color(0xFFCDE7E0),
+    'nomeeting': Color(0xFFD8D3C9),
+    'serviceproject': Color(0xFFDFE8C0),
+    'advancement': Color(0xFFF9E3A8),
+    'swim': Color(0xFFBCDDEC),
   };
 
   static const Color _eventTypeFallback = Color(0xFFEAEAE6);

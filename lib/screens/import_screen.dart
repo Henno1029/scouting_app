@@ -210,10 +210,10 @@ class _ImportScreenState extends State<ImportScreen> {
       if (types.isEmpty) {
         _classifyStatus = 'Ollama unreachable — kept keyword-based types.';
       } else {
-        _gridDrafts = [
+        _gridDrafts = ProgramTypeClassifier.applyKeywords([
           for (final d in _gridDrafts)
             d.copyWith(type: types[d.title] ?? d.type),
-        ];
+        ]);
         _table = _draftsTable(_gridDrafts);
         _mapping = CsvImportService.autoMap(_target, _table.headers);
         _classifyStatus = 'Refined ${types.length} types with local AI.';

@@ -31,6 +31,12 @@ class ProgramTypeClassifier {
       return 'Elections';
     }
     if (t.contains('no meeting')) return 'No Meeting';
+    if (t.contains('advancement') ||
+        t.contains('merit badge') ||
+        t.contains('rank advancement') ||
+        t.contains('scout rank')) {
+      return 'Advancement';
+    }
     if (t.contains('fundraiser') ||
         t.contains('popcorn') ||
         t.contains('book sale')) {

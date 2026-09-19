@@ -18,7 +18,7 @@ class YearCalendarPdfService {
     'camping': PdfColor.fromInt(0xFFD9EAD3),
     'plc': PdfColor.fromInt(0xFFE4DCF1),
     'committee': PdfColor.fromInt(0xFFD5EFEF),
-    'roundtable': PdfColor.fromInt(0xFFF3E3C6),
+    'roundtable': PdfColor.fromInt(0xFFF3C98B),
     'councilactivity': PdfColor.fromInt(0xFFF5DCE7),
     'oa': PdfColor.fromInt(0xFFF0E8C4),
     'holiday': PdfColor.fromInt(0xFFFBEAEB),
@@ -26,6 +26,10 @@ class YearCalendarPdfService {
     'event': PdfColor.fromInt(0xFFE3E0DA),
     'courtofhonor': PdfColor.fromInt(0xFFEED7C9),
     'elections': PdfColor.fromInt(0xFFCDE7E0),
+    'nomeeting': PdfColor.fromInt(0xFFD8D3C9),
+    'serviceproject': PdfColor.fromInt(0xFFDFE8C0),
+    'advancement': PdfColor.fromInt(0xFFF9E3A8),
+    'swim': PdfColor.fromInt(0xFFBCDDEC),
   };
   static final PdfColor _typeFallback = PdfColor.fromInt(0xFFEAEAE6);
 
