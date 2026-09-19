@@ -1,9 +1,10 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/csv_import_service.dart';
+import '../services/event_service.dart';
 import '../services/ollama_classifier.dart';
 import '../services/program_grid_parser.dart';
 import '../theme/app_theme.dart';
@@ -115,6 +116,60 @@ class _ImportScreenState extends State<ImportScreen> {
     );
   }
 
+  List<MapEntry<String, int>> _gridTypeCounts() {
+    final counts = <String, int>{};
+    for (final draft in _gridDrafts) {
+      counts[draft.type] = (counts[draft.type] ?? 0) + 1;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        return byCount != 0 ? byCount : a.key.compareTo(b.key);
+      });
+    return entries;
+  }
+
+  /// Preview rows sampled across every detected type so the table never looks
+  /// like it only contains meetings.
+  List<List<String>> _gridPreviewRows({int perType = 2}) {
+    final typeIndex = _table.headers.indexOf('Type');
+    final seen = <String, int>{};
+    final rows = <List<String>>[];
+    for (final row in _table.rows) {
+      final type = typeIndex >= 0 && typeIndex < row.length
+          ? row[typeIndex]
+          : '';
+      final count = seen[type] ?? 0;
+      if (count >= perType) continue;
+      seen[type] = count + 1;
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  Widget _typeSummary() {
+    final counts = _gridTypeCounts();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final entry in counts)
+          Chip(
+            label: Text('${entry.key} ${entry.value}'),
+            backgroundColor: AppTheme.eventTypeColor(entry.key),
+            side: BorderSide(color: AppTheme.scoutingWarmGray.withValues(alpha: 0.3)),
+            labelStyle: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.scoutingDarkBlue,
+              fontWeight: FontWeight.w600,
+            ),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+      ],
+    );
+  }
+
   List<String> _gridHeaders() {
     if (_gridRows.isNotEmpty &&
         _gridLayout.headerRow >= 0 &&
@@ -183,6 +238,10 @@ class _ImportScreenState extends State<ImportScreen> {
     }
     final result =
         await CsvImportService.save(_target, _fileName ?? 'untitled.csv', records);
+
+    if (_isGrid) {
+      await EventService.clearDeletedImports(_target.storageKey);
+    }
     var message = result.added == result.total
         ? 'Imported ${result.added} ${_target.label} records'
         : 'Imported ${result.added} new ${_target.label} records (${result.total} total)';
@@ -191,7 +250,12 @@ class _ImportScreenState extends State<ImportScreen> {
           '${result.scoutsAdded == 1 ? 'scout' : 'scouts'} from the roster';
     }
     if (_isGrid) {
-      message += ' • Types: ${_gridDrafts.isNotEmpty ? _gridDrafts.first.type : 'n/a'}';
+      final breakdown = _gridTypeCounts()
+          .map((entry) => '${entry.key} ${entry.value}')
+          .join(', ');
+      if (breakdown.isNotEmpty) {
+        message += ' • $breakdown';
+      }
     }
     _showSnack(message);
   }
@@ -287,10 +351,13 @@ class _ImportScreenState extends State<ImportScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Planning-calendar grid detected: '
-                      '${_gridDrafts.length} events found.',
+                      '${_gridDrafts.length} events across '
+                      '${_gridTypeCounts().length} types.',
                       style:
                           const TextStyle(color: AppTheme.scoutingWarmGray),
                     ),
+                    const SizedBox(height: 8),
+                    _typeSummary(),
                   ],
                 ],
               ),
@@ -714,7 +781,7 @@ class _ImportScreenState extends State<ImportScreen> {
   Widget _buildGridPreviewCard() {
     final headers = _mappedHeaders();
     if (headers.isEmpty) return const SizedBox.shrink();
-    final previewRows = _table.rows.take(5).toList();
+    final previewRows = _gridPreviewRows();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -729,7 +796,14 @@ class _ImportScreenState extends State<ImportScreen> {
                 color: AppTheme.scoutingDarkBlue,
               ),
             ),
+            const SizedBox(height: 4),
+            const Text(
+              'Every event type found in the sheet is imported to the calendar.',
+              style: TextStyle(fontSize: 12, color: AppTheme.scoutingWarmGray),
+            ),
             const SizedBox(height: 8),
+            _typeSummary(),
+            const SizedBox(height: 12),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
@@ -754,7 +828,8 @@ class _ImportScreenState extends State<ImportScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Showing first ${previewRows.length} of ${_table.rows.length} rows',
+              'Showing ${previewRows.length} sampled rows (2 per type) of '
+              '${_table.rows.length} total events',
               style: const TextStyle(
                   fontSize: 12, color: AppTheme.scoutingWarmGray),
             ),

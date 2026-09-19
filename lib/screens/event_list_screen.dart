@@ -25,6 +25,7 @@ class _EventListScreenState extends State<EventListScreen> {
   List<Event> _events = [];
   DateTime _view = DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool _yearView = false;
+  bool _jumpedToEvents = false;
   final Set<String> _hiddenTypes = {};
 
   @override
@@ -38,7 +39,28 @@ class _EventListScreenState extends State<EventListScreen> {
     if (!mounted) return;
     setState(() {
       _events = events;
+      if (!_jumpedToEvents) {
+        _jumpedToEvents = true;
+        _jumpToNearestEventMonth();
+      }
     });
+  }
+
+  /// Moves the view to the nearest month that actually has events when the
+  /// current month is empty (e.g. right after importing next year's calendar).
+  void _jumpToNearestEventMonth() {
+    final dated = _events.where((event) => event.date != null).toList();
+    if (dated.isEmpty) return;
+    final now = DateTime.now();
+    final hasCurrent = dated.any((event) =>
+        event.date!.year == now.year && event.date!.month == now.month);
+    if (hasCurrent) return;
+    dated.sort((a, b) => a.date!.compareTo(b.date!));
+    final monthStart = DateTime(now.year, now.month, 1);
+    final upcoming =
+        dated.where((event) => !event.date!.isBefore(monthStart)).toList();
+    final target = upcoming.isNotEmpty ? upcoming.first.date! : dated.last.date!;
+    _view = DateTime(target.year, target.month, 1);
   }
 
   List<Event> get _displayEvents => _events
@@ -474,12 +496,34 @@ class _EventListScreenState extends State<EventListScreen> {
       ..sort((a, b) => a.date!.compareTo(b.date!));
 
     if (monthEvents.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(12),
+      final dated = _events.where((event) => event.date != null).toList();
+      return Padding(
+        padding: const EdgeInsets.all(12),
         child: Center(
-          child: Text(
-            'No events this month',
-            style: TextStyle(color: AppTheme.scoutingWarmGray),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'No events this month',
+                style: TextStyle(color: AppTheme.scoutingWarmGray),
+              ),
+              if (dated.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${_events.length} event(s) loaded from your calendars.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: AppTheme.scoutingWarmGray, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      setState(() => _jumpToNearestEventMonth()),
+                  icon: const Icon(Icons.event_available, size: 18),
+                  label: const Text('Jump to nearest events'),
+                ),
+              ],
+            ],
           ),
         ),
       );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'services/merit_badge_service.dart';
+import 'services/advancement_service.dart';
+import 'services/scout_service.dart';
 import 'theme/app_theme.dart';
 
 class ScoutDetailScreen extends StatefulWidget {
@@ -13,10 +14,12 @@ class ScoutDetailScreen extends StatefulWidget {
 }
 
 class ScoutDetailScreenState extends State<ScoutDetailScreen> {
-  List<MeritBadge> _manualBadges = [];
-  List<MeritBadge> _importedBadges = [];
+  List<AdvancementEntry> _advancements = [];
+  List<AdvancementEntry> _requirements = [];
   String? _importedRank;
   bool _loading = true;
+
+  Map<String, String> get _scout => widget.scout;
 
   @override
   void initState() {
@@ -25,39 +28,63 @@ class ScoutDetailScreenState extends State<ScoutDetailScreen> {
   }
 
   Future<void> _refresh() async {
-    final name = widget.scout['name'] ?? '';
-    final imported = await MeritBadgeService.importedMeritBadges(name);
-    final rank = await MeritBadgeService.importedRank(name);
+    final name = _scout['name'] ?? '';
+    final advancements = await AdvancementService.importedAdvancements(name);
+    final requirements = await AdvancementService.importedRequirements(name);
+    final rank = await AdvancementService.importedRank(name);
     if (!mounted) return;
     setState(() {
-      _manualBadges = MeritBadgeService.manualBadges(widget.scout);
-      _importedBadges = imported;
+      _advancements = advancements;
+      _requirements = requirements;
       _importedRank = rank;
       _loading = false;
     });
   }
 
-  Future<void> _removeBadge(String name) async {
-    setState(() {
-      _manualBadges = _manualBadges
-          .where((badge) => badge.name != name)
-          .toList(growable: true);
-    });
-    await MeritBadgeService.saveBadges(_manualSaveName, _manualBadges);
+  int _typeWeight(String type) {
+    final lower = type.toLowerCase();
+    if (lower == 'rank') return 0;
+    if (lower.startsWith('merit badge')) return 1;
+    if (lower.startsWith('award')) return 2;
+    return 3;
   }
 
-  String get _manualSaveName => widget.scout['name'] ?? '';
+  int _compareTypes(String a, String b) {
+    final byWeight = _typeWeight(a).compareTo(_typeWeight(b));
+    if (byWeight != 0) return byWeight;
+    return a.toLowerCase().compareTo(b.toLowerCase());
+  }
 
-  Future<void> _showAddBadgeDialog() async {
-    final nameController = TextEditingController();
+  int _compareEntries(String type, AdvancementEntry a, AdvancementEntry b) {
+    if (type.toLowerCase() == 'rank') {
+      final ai = AdvancementService.rankOrder.indexOf(a.title);
+      final bi = AdvancementService.rankOrder.indexOf(b.title);
+      if (ai >= 0 && bi >= 0) return ai.compareTo(bi);
+      if (ai >= 0) return 1;
+      if (bi >= 0) return -1;
+    }
+    return a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
+  }
+
+  Future<void> _showEditDialog() async {
+    final nameController = TextEditingController(text: _scout['name'] ?? '');
+    final patrolController =
+        TextEditingController(text: _scout['patrol'] ?? '');
     final formKey = GlobalKey<FormState>();
-    DateTime? pickedDate;
+    var selectedRank = _scout['rank'] ?? '';
+    final rankOptions = <String>[
+      ...ScoutService.ranks,
+      if (selectedRank.isNotEmpty &&
+          !ScoutService.ranks.contains(selectedRank))
+        selectedRank,
+    ];
+    if (selectedRank.isEmpty) selectedRank = rankOptions.first;
 
-    final result = await showDialog<bool>(
+    final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Add Merit Badge'),
+          title: const Text('Edit Scout'),
           content: Form(
             key: formKey,
             child: Column(
@@ -66,32 +93,31 @@ class ScoutDetailScreenState extends State<ScoutDetailScreen> {
                 TextFormField(
                   controller: nameController,
                   autofocus: true,
-                  decoration: const InputDecoration(labelText: 'Badge name'),
+                  decoration: const InputDecoration(labelText: 'Scout\'s Name'),
                   validator: (value) => (value == null || value.trim().isEmpty)
-                      ? 'Enter a badge name'
+                      ? 'Enter a name'
                       : null,
                 ),
                 const SizedBox(height: 8),
-                InkWell(
-                  onTap: () async {
-                    final now = DateTime.now();
-                    final date = await showDatePicker(
-                      context: dialogContext,
-                      initialDate: pickedDate ?? now,
-                      firstDate: DateTime(now.year - 5),
-                      lastDate: DateTime.now().add(Duration(days: 365)),
-                    );
-                    if (date != null) pickedDate = date;
+                DropdownButtonFormField<String>(
+                  initialValue: selectedRank,
+                  decoration: const InputDecoration(labelText: 'Rank'),
+                  items: rankOptions
+                      .map((rank) => DropdownMenuItem<String>(
+                            value: rank,
+                            child: Text(rank),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) selectedRank = value;
                   },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Date earned (optional)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    child: Text(pickedDate == null
-                        ? 'Tap to pick a date'
-                        : '${pickedDate!.month}/${pickedDate!.day}/${pickedDate!.year}'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: patrolController,
+                  decoration: const InputDecoration(
+                    labelText: 'Patrol',
+                    hintText: 'Leave blank for no patrol',
                   ),
                 ),
               ],
@@ -107,36 +133,119 @@ class ScoutDetailScreenState extends State<ScoutDetailScreen> {
                 if (formKey.currentState?.validate() != true) return;
                 Navigator.pop(dialogContext, true);
               },
-              child: const Text('Add'),
+              child: const Text('Save'),
             ),
           ],
         );
       },
     );
 
-    if (result != true) return;
-    final title = nameController.text.trim();
-    final date = pickedDate == null
-        ? ''
-        : '${pickedDate!.month}/${pickedDate!.day}/${pickedDate!.year}';
+    if (saved != true) return;
+    final originalName = _scout['name'] ?? '';
+    final updated = {
+      'name': nameController.text.trim(),
+      'rank': selectedRank,
+      'patrol': patrolController.text.trim(),
+    };
+    await ScoutService.updateScout(originalName, updated);
+    if (!mounted) return;
     setState(() {
-      _manualBadges = [..._manualBadges, MeritBadge(title, date)]
-        ..sort((a, b) => a.name.compareTo(b.name));
+      _scout['name'] = updated['name']!;
+      _scout['rank'] = updated['rank']!;
+      _scout['patrol'] = updated['patrol']!;
     });
-    await MeritBadgeService.saveBadges(_manualSaveName, _manualBadges);
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Scout updated')),
+    );
+  }
+
+  IconData _typeIcon(String type) {
+    final lower = type.toLowerCase();
+    if (lower == 'rank') return Icons.military_tech;
+    if (lower.startsWith('merit badge')) return Icons.workspace_premium;
+    if (lower.startsWith('award')) return Icons.emoji_events;
+    return Icons.assignment_turned_in;
+  }
+
+  Widget _section(String type, List<AdvancementEntry> entries) {
+    entries.sort((a, b) => _compareEntries(type, a, b));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(type, style: Theme.of(context).textTheme.titleMedium),
+            const Spacer(),
+            Text('${entries.length}',
+                style: Theme.of(context).textTheme.titleMedium),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ...entries.map((entry) {
+          final details = <String>[
+            if (entry.date.isNotEmpty) 'Completed ${entry.date}',
+            if (entry.version.isNotEmpty) 'v${entry.version}',
+          ];
+          return ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: Icon(_typeIcon(type), color: AppTheme.scoutingBlue),
+            title: Text(entry.displayTitle),
+            subtitle: details.isEmpty ? null : Text(details.join(' • ')),
+            trailing: entry.awarded
+                ? const Icon(Icons.verified, color: Colors.green, size: 20)
+                : entry.approved
+                    ? const Icon(Icons.check_circle_outline, size: 20)
+                    : null,
+          );
+        }),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _requirementsTile() {
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: Text('Requirement progress (${_requirements.length})'),
+      subtitle: const Text('Individual requirements recorded in Scoutbook'),
+      children: _requirements.map((entry) {
+        return ListTile(
+          contentPadding: const EdgeInsets.only(left: 16),
+          dense: true,
+          leading: const Icon(Icons.checklist, size: 20),
+          title: Text(entry.title),
+          subtitle: Text(entry.type),
+          trailing: entry.date.isEmpty
+              ? null
+              : Text(entry.date, style: Theme.of(context).textTheme.bodySmall),
+        );
+      }).toList(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final scout = widget.scout;
-    final patrol = scout['patrol'] ?? '';
-    final allBadges = <String, MeritBadge>{
-      for (final badge in _importedBadges) badge.name: badge,
-      for (final badge in _manualBadges) badge.name: badge,
-    };
+    final rank = _importedRank ?? _scout['rank'] ?? '';
+    final patrol = _scout['patrol'] ?? '';
+    final groups = <String, List<AdvancementEntry>>{};
+    for (final entry in _advancements) {
+      groups.putIfAbsent(entry.type, () => []).add(entry);
+    }
+    final types = groups.keys.toList()..sort(_compareTypes);
 
     return Scaffold(
-      appBar: AppBar(title: Text(scout['name'] ?? 'Scout Detail')),
+      appBar: AppBar(
+        title: Text(_scout['name'] ?? 'Scout Detail'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: 'Edit scout',
+            onPressed: _showEditDialog,
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -144,11 +253,14 @@ class ScoutDetailScreenState extends State<ScoutDetailScreen> {
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.person),
-                  title: Text(scout['name'] ?? ''),
+                  leading: const Icon(Icons.person, size: 36),
+                  title: Text(
+                    _scout['name'] ?? '',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   subtitle: Text(patrol.isEmpty
-                      ? (scout['rank'] ?? '')
-                      : '${scout['rank']} • $patrol'),
+                      ? rank
+                      : '${rank.isEmpty ? '' : '$rank • '}$patrol'),
                 ),
                 const Divider(),
                 Text(
@@ -156,78 +268,20 @@ class ScoutDetailScreenState extends State<ScoutDetailScreen> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
-                if (_importedRank != null)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.military_tech),
-                    title: const Text('Rank'),
-                    subtitle: Text(_importedRank!),
-                  ),
-                Row(
-                  children: [
-                    Text(
-                      'Merit Badges',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${allBadges.length}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'From Scoutbook import and manual entries.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                if (allBadges.isEmpty)
+                if (types.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('No merit badges yet.'),
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'No advancement data yet. Use Upload Data to import a '
+                      'Scoutbook advancement export.',
+                    ),
                   )
                 else
-                  ...allBadges.values.map((badge) {
-                    final imported = _importedBadges.any(
-                        (b) => b.name == badge.name);
-                    final manual = _manualBadges
-                        .any((b) => b.name == badge.name);
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      leading: Icon(
-                        imported ? Icons.assignment_turned_in : Icons.workspace_premium,
-                        color: imported ? AppTheme.scoutingBlue : null,
-                      ),
-                      title: Text(badge.name),
-                      subtitle: badge.date.isEmpty
-                          ? null
-                          : Text('Earned ${badge.date}'),
-                      trailing: manual
-                          ? IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20),
-                              tooltip: 'Remove badge',
-                              color: Colors.red,
-                              onPressed: () => _removeBadge(badge.name),
-                            )
-                          : const Icon(Icons.link, size: 18),
-                    );
-                  }),
-                const SizedBox(height: 16),
+                  ...types.map((type) => _section(type, groups[type]!)),
+                if (_requirements.isNotEmpty) _requirementsTile(),
+                const SizedBox(height: 8),
                 ElevatedButton.icon(
-                  onPressed: _showAddBadgeDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Merit Badge'),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Editing not implemented yet.')),
-                    );
-                  },
+                  onPressed: _showEditDialog,
                   icon: const Icon(Icons.edit),
                   label: const Text('Edit Scout'),
                 ),

@@ -46,6 +46,15 @@ class EventService {
     return decoded.map((e) => e.toString()).toSet();
   }
 
+  /// Clears delete-tombstones for a given import key so a fresh import of that
+  /// file brings back events that were deleted in an earlier session.
+  static Future<void> clearDeletedImports(String key) async {
+    if (!_importKeys.contains(key)) return;
+    final deleted = await _deletedImportIds();
+    deleted.removeWhere((id) => id.startsWith('$key|'));
+    await _saveDeletedImportIds(deleted);
+  }
+
   static Future<void> _saveDeletedImportIds(Set<String> ids) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_deletedImportsKey, jsonEncode(ids.toList()));

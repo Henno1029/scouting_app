@@ -246,7 +246,7 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                       context,
                       '/scoutDetail',
                       arguments: _scouts[index],
-                    ),
+                    ).then((_) => _loadScouts()),
                     trailing: IconButton(
                       icon: Icon(Icons.delete),
                       onPressed: () => _deleteScout(index),

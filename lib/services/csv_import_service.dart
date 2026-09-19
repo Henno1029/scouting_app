@@ -457,13 +457,19 @@ class CsvImportService {
       if ((record['advancementType'] ?? '').trim().toLowerCase() != 'rank') {
         continue;
       }
-      final advancement = (record['advancement'] ?? '').trim();
-      final idx = _rankOrder.indexOf(advancement);
-      if (idx < 0) continue;
+      final advancement = _normalize((record['advancement'] ?? '').trim());
+      var bestIndex = -1;
+      for (var i = 0; i < _rankOrder.length; i++) {
+        if (advancement.contains(_normalize(_rankOrder[i])) && i > bestIndex) {
+          bestIndex = i;
+        }
+      }
+      if (bestIndex < 0) continue;
+      final rank = _rankOrder[bestIndex];
       final key = _normalize(name);
       final current = rankByName[key];
       final currentIdx = current == null ? -1 : _rankOrder.indexOf(current);
-      if (idx > currentIdx) rankByName[key] = advancement;
+      if (bestIndex > currentIdx) rankByName[key] = rank;
     }
 
     final prefs = await SharedPreferences.getInstance();
