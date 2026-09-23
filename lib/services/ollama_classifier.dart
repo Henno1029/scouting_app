@@ -92,15 +92,28 @@ class OllamaTypeClassifier {
   static const String defaultHost = 'http://localhost:11434';
   static const Duration defaultTimeout = Duration(seconds: 90);
 
+  static const int defaultNumCtx = 16384;
+  static const int defaultNumPredict = 512;
+  static const double defaultTemperature = 0.0;
+  static const double defaultTopP = 0.9;
+
   final String host;
   final String model;
   final Duration timeout;
+  final int numCtx;
+  final int numPredict;
+  final double temperature;
+  final double topP;
   final http.Client _client;
 
   OllamaTypeClassifier({
     this.host = defaultHost,
     this.model = 'qwen3:8b',
     this.timeout = defaultTimeout,
+    this.numCtx = defaultNumCtx,
+    this.numPredict = defaultNumPredict,
+    this.temperature = defaultTemperature,
+    this.topP = defaultTopP,
     http.Client? client,
   }) : _client = client ?? http.Client();
 
@@ -126,6 +139,12 @@ class OllamaTypeClassifier {
               'prompt': prompt,
               'stream': false,
               'format': 'json',
+              'options': {
+                'num_ctx': numCtx,
+                'num_predict': numPredict,
+                'temperature': temperature,
+                'top_p': topP,
+              },
             }),
           )
           .timeout(timeout);
