@@ -7,6 +7,7 @@ import '../services/event_service.dart';
 import '../services/year_calendar_pdf_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_dates.dart';
+import '../widgets/event_edit_dialog.dart';
 
 class EventListScreen extends StatefulWidget {
   const EventListScreen({super.key});
