@@ -4,6 +4,7 @@ class Event {
   final DateTime? date;
   final String location;
   final String type;
+  final String description;
   final List<String> activities;
 
   const Event({
@@ -12,6 +13,7 @@ class Event {
     this.date,
     this.location = '',
     this.type = '',
+    this.description = '',
     this.activities = const [],
   });
 
@@ -23,6 +25,7 @@ class Event {
         'date': date?.toIso8601String(),
         'location': location,
         'type': type,
+        'description': description,
         'activities': activities,
       };
 
@@ -33,6 +36,7 @@ class Event {
       date: DateTime.tryParse(json['date']?.toString() ?? ''),
       location: json['location']?.toString() ?? '',
       type: json['type']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
       activities: (json['activities'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }

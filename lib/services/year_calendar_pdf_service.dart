@@ -163,7 +163,7 @@ class YearCalendarPdfService {
             _cell('Date', bold: true),
             _cell('Event', bold: true),
             _cell('Type', bold: true),
-            _cell('Location', bold: true),
+            _cell('Description', bold: true),
           ],
         ),
         for (final event in events)
@@ -172,7 +172,7 @@ class YearCalendarPdfService {
               _cell(_dateLabel(event.date!)),
               _cell(event.title, bold: true),
               _cell(event.type, background: _typeColor(event.type)),
-              _cell(event.location),
+              _cell(event.description),
             ],
           ),
       ],
