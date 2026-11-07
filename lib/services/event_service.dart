@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event.dart';
 import '../utils/app_dates.dart';
 import 'csv_import_service.dart';
+import 'event_edit_service.dart';
 
 class EventService {
   static const _key = 'events';
@@ -61,8 +62,9 @@ class EventService {
   }
 
   static Future<List<Event>> load() async {
-    final events = await _loadManual();
+    final manual = await _loadManual();
     final deleted = await _deletedImportIds();
+    final imported = <Event>[];
 
     for (final key in _importKeys) {
       final rows = await CsvImportService.load(key);
@@ -73,7 +75,7 @@ class EventService {
         final location = row['location']?.toString() ?? '';
         final id = _importEventId(key, row);
         if (deleted.contains(id)) continue;
-        events.add(Event(
+        imported.add(Event(
           id: id,
           title: row['title']?.toString() ?? 'Untitled',
           date: date,
@@ -84,6 +86,7 @@ class EventService {
       }
     }
 
+    final events = [...manual, ...await EventEditService.apply(imported)];
     events.sort((a, b) {
       if (a.date == null && b.date == null) return 0;
       if (a.date == null) return 1;
@@ -110,12 +113,30 @@ class EventService {
     await _saveManual(events);
   }
 
+  static bool _isImported(String id) =>
+      _importKeys.any((key) => id.startsWith('$key|'));
+
+  /// Saves changes to an existing event. Imported events keep their id and
+  /// store the changes as an override, because their rows are rebuilt from the
+  /// import on every load. Manual events are replaced in place.
+  static Future<void> update(Event event) async {
+    if (_isImported(event.id)) {
+      await EventEditService.save(event);
+      return;
+    }
+    final events = await _loadManual();
+    final index = events.indexWhere((e) => e.id == event.id);
+    if (index < 0) return;
+    events[index] = event;
+    await _saveManual(events);
+  }
+
   static Future<void> delete(String id) async {
-    final isImported = _importKeys.any((key) => id.startsWith('$key|'));
-    if (isImported) {
+    if (_isImported(id)) {
       final deleted = await _deletedImportIds();
       deleted.add(id);
       await _saveDeletedImportIds(deleted);
+      await EventEditService.remove(id);
       return;
     }
     final events = await _loadManual();

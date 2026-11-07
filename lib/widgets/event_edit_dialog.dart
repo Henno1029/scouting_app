@@ -4,10 +4,10 @@ import '../models/event.dart';
 import '../services/event_service.dart';
 
 /// Dialog for editing an existing [Event]: change its name, type, date,
-/// location or description. Changes persist by tombstoning the original
-/// (EventService.delete -> survives re-imports) and re-adding the edited copy
-/// as a manual event. The description is what shows on the year-calendar PDF
-/// export in place of the location column.
+/// location or description. Changes persist through [EventService.update], so
+/// the event keeps its id and edits to imported events survive re-imports. The
+/// description is what shows on the year-calendar PDF export in place of the
+/// location column. Pops `true` when saved and `false` when cancelled.
 class EventEditDialog extends StatefulWidget {
   const EventEditDialog({super.key, required this.event});
 
@@ -29,13 +29,29 @@ class _EventEditDialogState extends State<EventEditDialog> {
     'Swim',
     'Elections',
     'Meeting',
-    'Camping',
+    'Campout',
     'Service Project',
     'Advancement',
     'Roundtable',
     'No Meeting',
     'Event',
+    'Special Event',
+    'Holiday',
+    'PLC',
+    'Committee',
+    'Council Activity',
+    'OA',
+    'Hunting',
+    'Task',
+    'Fundraiser',
+    'Hike',
+    'Other',
   ];
+
+  /// An event can carry a type outside [_types] (for example from an older
+  /// import), and the dropdown requires its value to be one of its items.
+  List<String> get _typeOptions =>
+      _types.contains(_type) ? _types : [..._types, _type];
 
   @override
   void initState() {
@@ -79,8 +95,7 @@ class _EventEditDialogState extends State<EventEditDialog> {
       description: _description.text.trim(),
       activities: original.activities,
     );
-    await EventService.delete(original.id);
-    await EventService.add(edited);
+    await EventService.update(edited);
     if (mounted) Navigator.of(context).pop(true);
   }
 
@@ -101,7 +116,7 @@ class _EventEditDialogState extends State<EventEditDialog> {
               initialValue: _type,
               decoration: const InputDecoration(labelText: 'Type'),
               items: [
-                for (final type in _types)
+                for (final type in _typeOptions)
                   DropdownMenuItem(value: type, child: Text(type)),
               ],
               onChanged: (value) =>

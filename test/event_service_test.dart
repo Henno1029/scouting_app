@@ -74,4 +74,78 @@ void main() {
     final after = await EventService.load();
     expect(after, isEmpty);
   });
+
+  Event edited(Event event, String title) => Event(
+        id: event.id,
+        title: title,
+        date: DateTime(2027, 7, 1),
+        location: 'Lake',
+        type: 'Holiday',
+        description: 'Bring a tent',
+        activities: event.activities,
+      );
+
+  test('editing an imported event keeps one copy with the same id', () async {
+    await seedImport();
+    final original = (await EventService.load()).single;
+
+    await EventService.update(edited(original, 'First edit'));
+    await EventService.update(edited(original, 'Second edit'));
+
+    final after = (await EventService.load()).single;
+    expect(after.id, original.id);
+    expect(after.title, 'Second edit');
+    expect(after.date, DateTime(2027, 7, 1));
+    expect(after.location, 'Lake');
+    expect(after.type, 'Holiday');
+    expect(after.description, 'Bring a tent');
+  });
+
+  test('an edited imported event can be deleted', () async {
+    await seedImport();
+    final original = (await EventService.load()).single;
+    await EventService.update(edited(original, 'Edited'));
+
+    await EventService.delete(original.id);
+
+    expect(await EventService.load(), isEmpty);
+  });
+
+  test('edits to an imported event survive re-importing the file', () async {
+    await seedImport();
+    final original = (await EventService.load()).single;
+    await EventService.update(edited(original, 'Edited'));
+
+    await seedImport();
+    await EventService.clearDeletedImports('import_calendar');
+
+    expect((await EventService.load()).single.title, 'Edited');
+  });
+
+  test('re-importing after deleting an edited event restores the original',
+      () async {
+    await seedImport();
+    final original = (await EventService.load()).single;
+    await EventService.update(edited(original, 'Edited'));
+    await EventService.delete(original.id);
+
+    await seedImport();
+    await EventService.clearDeletedImports('import_calendar');
+
+    expect((await EventService.load()).single.title, 'Summer Camp');
+  });
+
+  test('editing a manual event replaces it in place', () async {
+    await EventService.add(const Event(id: 'manual-1', title: 'Manual'));
+    final original = (await EventService.load()).single;
+
+    await EventService.update(edited(original, 'Renamed'));
+
+    final after = (await EventService.load()).single;
+    expect(after.id, 'manual-1');
+    expect(after.title, 'Renamed');
+
+    await EventService.delete('manual-1');
+    expect(await EventService.load(), isEmpty);
+  });
 }

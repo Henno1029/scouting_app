@@ -569,14 +569,24 @@ class _EventListScreenState extends State<EventListScreen> {
                 ),
                 title: Text(event.title),
                 subtitle: Text(_eventSubtitle(event)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  color: AppTheme.scoutingRed,
-                  tooltip: 'Delete event',
-                  onPressed: () async {
-                    await EventService.delete(event.id);
-                    _load();
-                  },
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      tooltip: 'Edit event',
+                      onPressed: () => _editEvent(event),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      color: AppTheme.scoutingRed,
+                      tooltip: 'Delete event',
+                      onPressed: () async {
+                        await EventService.delete(event.id);
+                        _load();
+                      },
+                    ),
+                  ],
                 ),
                 onTap: () => _showDaySheet(event.date ?? _view),
               );
@@ -778,16 +788,32 @@ class _EventListScreenState extends State<EventListScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  _formatDate(day),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.scoutingDarkBlue,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      _formatDate(day),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.scoutingDarkBlue,
+                      ),
+                    ),
                   ),
-                ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Event'),
+                    onPressed: () async {
+                      await _addEventDialog();
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      _load();
+                    },
+                  ),
+                ],
               ),
               if (events.isEmpty)
                 const Padding(
@@ -816,14 +842,32 @@ class _EventListScreenState extends State<EventListScreen> {
                         ),
                         title: Text(event.title),
                         subtitle: Text(_eventSubtitle(event)),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          color: AppTheme.scoutingRed,
-                          onPressed: () async {
-                            await EventService.delete(event.id);
-                            Navigator.pop(context);
-                            _load();
-                          },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              tooltip: 'Edit event',
+                              onPressed: () async {
+                                final saved = await _editEvent(event);
+                                // The sheet lists a snapshot of the day's
+                                // events, so close it rather than show stale
+                                // details.
+                                if (saved && context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              color: AppTheme.scoutingRed,
+                              onPressed: () async {
+                                await EventService.delete(event.id);
+                                Navigator.pop(context);
+                                _load();
+                              },
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -834,6 +878,17 @@ class _EventListScreenState extends State<EventListScreen> {
         );
       },
     );
+  }
+
+  /// Opens the edit dialog and reloads if it was saved. Returns whether it was.
+  Future<bool> _editEvent(Event event) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => EventEditDialog(event: event),
+    );
+    if (saved != true) return false;
+    await _load();
+    return true;
   }
 
   Future<void> _addEventDialog() async {
