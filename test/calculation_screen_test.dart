@@ -95,6 +95,36 @@ void main() {
     expect(printButton().onPressed, isNull);
   });
 
+  testWidgets('opening stays quick with a large troop',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({
+      'scouts': jsonEncode([
+        for (var i = 0; i < 60; i++) {'name': 'First$i Last$i', 'rank': 'Scout'},
+      ]),
+      'import_advancement': jsonEncode([
+        for (var s = 0; s < 60; s++)
+          for (var r = 0; r < 500; r++)
+            {
+              'firstName': 'First$s',
+              'lastName': 'Last$s',
+              'advancementType': 'Second Class Rank Requirements',
+              'advancement': '${r % 12 + 1}a Some requirement text',
+              'dateCompleted': '01/02/2024',
+            },
+      ]),
+    });
+
+    final watch = Stopwatch()..start();
+    await tester.pumpWidget(const MaterialApp(home: CalculationScreen()));
+    await tester.pumpAndSettle();
+    watch.stop();
+
+    // Reading the data once per scout took over 20 seconds. The limit is far
+    // above the normal time, so only that kind of slowdown should trip it.
+    expect(watch.elapsed, lessThan(const Duration(seconds: 8)));
+    expect(find.textContaining('First0 Last0'), findsOneWidget);
+  });
+
   testWidgets('past events only appear when switched on',
       (WidgetTester tester) async {
     await pumpScreen(tester);

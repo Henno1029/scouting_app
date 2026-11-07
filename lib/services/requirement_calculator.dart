@@ -101,9 +101,11 @@ class RequirementCalculator {
   static bool _isCompleted(RankRequirement requirement, ScoutProgress progress) {
     final done = progress.completed[requirement.rank];
     if (done == null) return false;
-    final number = RegExp(r'^\d+').stringMatch(requirement.id);
+    final number = _leadingNumber.stringMatch(requirement.id);
     return done.contains(requirement.id) || done.contains(number);
   }
+
+  static final RegExp _leadingNumber = RegExp(r'^\d+');
 
   static const List<String> _rankDetectOrder = [
     'Second Class',
@@ -148,12 +150,18 @@ class RequirementCalculator {
     return '${match.group(1)}${match.group(2) ?? ''}';
   }
 
-  /// Reads one scout's progress from the imported advancement data, falling
-  /// back on [storedRank] when no earned rank was imported.
-  static Future<ScoutProgress> load(String name, String storedRank) async {
-    final importedRank = await AdvancementService.importedRank(name);
-    final requirements = await AdvancementService.importedRequirements(name);
-    final advancements = await AdvancementService.importedAdvancements(name);
+  /// Reads one scout's progress from the imported advancement data. To look up
+  /// several scouts, load one [AdvancementIndex] and use [fromIndex] instead.
+  static Future<ScoutProgress> load(String name, String storedRank) async =>
+      fromIndex(await AdvancementIndex.load(), name, storedRank);
+
+  /// One scout's progress, falling back on [storedRank] when no earned rank
+  /// was imported.
+  static ScoutProgress fromIndex(
+      AdvancementIndex index, String name, String storedRank) {
+    final importedRank = index.rank(name);
+    final requirements = index.requirements(name);
+    final advancements = index.advancements(name);
 
     final completed = <String, Set<String>>{};
     var unreadable = 0;

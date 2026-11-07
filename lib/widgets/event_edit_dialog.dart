@@ -137,6 +137,8 @@ class _EventEditDialogState extends State<EventEditDialog> {
             const SizedBox(height: 12),
             TextField(
               controller: _description,
+              minLines: 1,
+              maxLines: null,
               decoration: const InputDecoration(
                 labelText: 'Description (shown on PDF export)',
               ),

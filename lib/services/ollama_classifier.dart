@@ -200,3 +200,87 @@ class OllamaTypeClassifier {
   static String _escape(String value) =>
       value.replaceAll('"', r'\"').replaceAll('\\', r'\\');
 }
+
+/// Sorts a meeting agenda row written in someone's own words into a section of
+/// the official Meeting Plan, using the local Ollama model only.
+class OllamaSectionClassifier {
+  /// Section keys, matching OfficialFormService, and what belongs in each.
+  static const Map<String, String> sections = {
+    'preopening': 'an activity while scouts arrive, before the meeting starts',
+    'opening':
+        'opening ceremony, flag presentation, Oath and Law, uniform inspection',
+    'group': 'instruction or a talk for the whole troop. The plain word '
+        '"instruction" means this section',
+    'essential': 'skills instruction for the newest scouts',
+    'challenging': 'skills instruction for experienced scouts',
+    'advanced': 'skills instruction for the most experienced scouts',
+    'breakout': 'patrol meetings, patrol time, breakout groups',
+    'game': 'a game, challenge, relay or competition',
+    'closing':
+        "announcements, leader's or Scoutmaster's minute, closing ceremony",
+    'after': 'leadership review after the meeting has ended',
+  };
+
+  final String host;
+  final String model;
+  final Duration timeout;
+  final http.Client _client;
+
+  OllamaSectionClassifier({
+    this.host = OllamaTypeClassifier.defaultHost,
+    this.model = 'qwen3:8b',
+    this.timeout = OllamaTypeClassifier.defaultTimeout,
+    http.Client? client,
+  }) : _client = client ?? http.Client();
+
+  /// The section [text] belongs in, or null if it fits none. [reachable] is
+  /// false if Ollama couldn't give a usable answer at all.
+  Future<({bool reachable, String? section})> classify(String text) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$host/api/generate'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'model': model,
+              'prompt': buildPrompt(text),
+              'stream': false,
+              // Models that think first spend the short reply limit on it and
+              // return nothing.
+              'think': false,
+              'format': 'json',
+              'options': {
+                'num_ctx': 4096,
+                'num_predict': 64,
+                'temperature': 0.0,
+                'top_p': 0.9,
+              },
+            }),
+          )
+          .timeout(timeout);
+      if (response.statusCode != 200) {
+        return (reachable: false, section: null);
+      }
+      final reply = jsonDecode(response.body)['response'];
+      final section = jsonDecode(reply as String)['section'];
+      return (
+        reachable: true,
+        section: sections.containsKey(section) ? section as String : null,
+      );
+    } catch (_) {
+      return (reachable: false, section: null);
+    }
+  }
+
+  static String buildPrompt(String text) {
+    final list = sections.entries
+        .map((entry) => '- ${entry.key}: ${entry.value}')
+        .join('\n');
+    return 'You sort items from a Scouts BSA troop meeting agenda into the '
+        'sections of the official Meeting Plan. The sections are:\n'
+        '$list\n'
+        '- none: the item fits none of these\n'
+        'Reply with JSON only, in the form {"section": "<name>"}.\n'
+        'Item: ${jsonEncode(text)}';
+  }
+}

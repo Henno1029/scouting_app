@@ -76,6 +76,10 @@ Shows:
 
 ## Calculation Page (Screen 5)
 
+Two tabs sharing one event picker: **Event Calculations** and **Event Plans**. The picker combines consecutive days with the same title and type into one entry, such as a multi-day campout. The calendar still shows each day.
+
+### Event Calculations
+
 User selects:
 
 - An event
@@ -84,6 +88,17 @@ User selects:
 App outputs:
 
 - Which requirements each scout can complete at that event
+- A printable checklist of the results
+
+### Event Plans
+
+For the selected event, the user builds a plan. The draft is kept on the device while typing, and **Save** writes a summary into the description of every day of the event, replacing any earlier summary and keeping other description text. The description shows in the calendar's day sheet and the PDF export.
+
+- **Agenda or planning phases** — starter rows matching the event's official form, with items that can be edited, added, reordered and removed. Each has a title, minutes, who and details, with a running total of minutes.
+- **Requirements to cover** — suggested from the event type, most needed first, counted across the scouts ticked on Event Calculations or the whole roster if none are ticked.
+- **Materials and notes** — free text.
+- **Sorting rows into sections** — on the Meeting Plan, a row added in the user's own words, such as "instruction", goes into the matching section using the local Ollama model only, with an Undo. If Ollama isn't running or nothing matches, the row stays and goes on the form's attached page.
+- **Official form** — a button fills out the official form for the event and opens the print dialog: the **Meeting Plan** for meetings and the **Scout Planning Worksheet** (No. 512-505) for everything else, such as campouts. The form's own questions are answered on the tab. Anything with no box on the form, or too long for its box, goes in full on an attached page.
 
 ## Planned: Activity Requirements Check
 

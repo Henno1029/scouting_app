@@ -29,9 +29,10 @@ class ScoutDetailScreenState extends State<ScoutDetailScreen> {
 
   Future<void> _refresh() async {
     final name = _scout['name'] ?? '';
-    final advancements = await AdvancementService.importedAdvancements(name);
-    final requirements = await AdvancementService.importedRequirements(name);
-    final rank = await AdvancementService.importedRank(name);
+    final index = await AdvancementIndex.load();
+    final advancements = index.advancements(name);
+    final requirements = index.requirements(name);
+    final rank = index.rank(name);
     if (!mounted) return;
     setState(() {
       _advancements = advancements;

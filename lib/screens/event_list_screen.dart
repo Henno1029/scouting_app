@@ -841,7 +841,11 @@ class _EventListScreenState extends State<EventListScreen> {
                           ),
                         ),
                         title: Text(event.title),
-                        subtitle: Text(_eventSubtitle(event)),
+                        subtitle: Text(
+                          event.description.isEmpty
+                              ? _eventSubtitle(event)
+                              : '${_eventSubtitle(event)}\n${event.description}',
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

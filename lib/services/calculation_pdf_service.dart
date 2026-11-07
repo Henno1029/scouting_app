@@ -26,6 +26,9 @@ class CalculationPdfService {
     required List<ScoutRequirements> results,
     required String troopName,
     Uint8List? logoBytes,
+
+    /// Replaces the event's own date, for an event spanning several days.
+    String? dateLabel,
   }) async {
     final doc = pw.Document();
     doc.addPage(
@@ -40,7 +43,7 @@ class CalculationPdfService {
           ),
         ),
         build: (_) => [
-          _header(troopName, event, logoBytes),
+          _header(troopName, event, logoBytes, dateLabel),
           pw.SizedBox(height: 12),
           for (final result in results) ..._scoutSection(result),
           pw.SizedBox(height: 4),
@@ -77,9 +80,17 @@ class CalculationPdfService {
     return result;
   }
 
-  static pw.Widget _header(String troopName, Event event, Uint8List? logoBytes) {
+  static pw.Widget _header(
+    String troopName,
+    Event event,
+    Uint8List? logoBytes,
+    String? dateLabel,
+  ) {
     final details = <String>[
-      if (event.date != null) _dateLabel(event.date!),
+      if (dateLabel != null)
+        dateLabel
+      else if (event.date != null)
+        _dateLabel(event.date!),
       if (event.type.isNotEmpty) printable(event.type),
       if (event.location.isNotEmpty) printable(event.location),
     ];

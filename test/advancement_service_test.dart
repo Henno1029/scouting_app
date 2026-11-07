@@ -90,6 +90,19 @@ void main() {
     expect(requirements.single.type, contains('Requirements'));
   });
 
+  test('the shared index gives the same answers as a single lookup', () async {
+    final index = await AdvancementIndex.load();
+    final single = await AdvancementService.importedAdvancements('Henry Welle');
+    expect(index.advancements('Henry Welle').map((e) => e.title),
+        single.map((e) => e.title));
+    expect(index.requirements('Henry Welle').single.title,
+        'Camp at least 20 nights');
+    expect(index.rank('Henry Welle'), 'Life');
+    expect(index.advancements('Someone Else').single.title, 'Cooking MB');
+    expect(index.advancements('Nobody Here'), isEmpty);
+    expect(index.rank(''), isNull);
+  });
+
   test('imported rank resolves the highest rank from long titles', () async {
     expect(await AdvancementService.importedRank('Henry Welle'), 'Life');
   });

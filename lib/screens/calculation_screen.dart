@@ -3,26 +3,39 @@ import 'package:printing/printing.dart';
 
 import '../data/rank_requirements.dart';
 import '../models/event.dart';
+import '../models/event_group.dart';
+import '../services/advancement_service.dart';
 import '../services/branding_service.dart';
 import '../services/calculation_pdf_service.dart';
 import '../services/event_service.dart';
+import '../services/ollama_classifier.dart';
 import '../services/requirement_calculator.dart';
 import '../services/scout_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_dates.dart';
+import '../widgets/event_plan_tab.dart';
 
-/// Pick an event and who is attending, and see which rank requirements each
-/// scout could complete there.
+/// Two tabs sharing one event picker. Event Calculations shows which rank
+/// requirements each attending scout could complete at the event, and Event
+/// Plans is for planning the meeting or event itself.
 class CalculationScreen extends StatefulWidget {
-  const CalculationScreen({super.key});
+  const CalculationScreen({super.key, this.sectionClassifier});
+
+  /// Replaces the local Ollama classifier, for tests.
+  final OllamaSectionClassifier? sectionClassifier;
 
   @override
   State<CalculationScreen> createState() => _CalculationScreenState();
 }
 
-class _CalculationScreenState extends State<CalculationScreen> {
+class _CalculationScreenState extends State<CalculationScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 2, vsync: this)
+    ..addListener(() {
+      if (!_tabs.indexIsChanging) setState(() {});
+    });
   bool _loading = true;
-  List<Event> _events = [];
+  List<EventGroup> _events = [];
   List<ScoutProgress> _scouts = [];
   bool _includePast = false;
   String? _eventId;
@@ -34,17 +47,36 @@ class _CalculationScreenState extends State<CalculationScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  Future<List<EventGroup>> _readEvents() async {
     final loaded = await EventService.load();
     final seen = <String>{};
-    final events = loaded
-        .where((event) => event.date != null && seen.add(event.id))
-        .toList();
+    return EventGroup.combine(
+      loaded.where((event) => seen.add(event.id)).toList(),
+    );
+  }
+
+  /// Saving a plan only changes events, so this skips re-reading the scouts.
+  Future<void> _reloadEvents() async {
+    final events = await _readEvents();
+    if (!mounted) return;
+    setState(() => _events = events);
+  }
+
+  Future<void> _load() async {
+    final events = await _readEvents();
+    final index = await AdvancementIndex.load();
     final scouts = <ScoutProgress>[];
     for (final scout in await ScoutService.load()) {
       final name = scout['name'] ?? '';
       if (name.isEmpty) continue;
-      scouts.add(await RequirementCalculator.load(name, scout['rank'] ?? ''));
+      scouts.add(
+          RequirementCalculator.fromIndex(index, name, scout['rank'] ?? ''));
     }
     scouts.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     if (!mounted) return;
@@ -55,23 +87,25 @@ class _CalculationScreenState extends State<CalculationScreen> {
     });
   }
 
-  List<Event> get _visibleEvents {
+  /// Hides events that have finished, but not one still under way.
+  List<EventGroup> get _visibleEvents {
     if (_includePast) return _events;
     final today = DateTime.parse(AppDates.dayKey(DateTime.now()));
-    return _events.where((event) => !event.date!.isBefore(today)).toList();
+    return _events.where((group) => !group.end.isBefore(today)).toList();
   }
 
-  Event? get _selectedEvent {
-    for (final event in _visibleEvents) {
-      if (event.id == _eventId) return event;
+  EventGroup? get _selectedGroup {
+    for (final group in _visibleEvents) {
+      if (group.id == _eventId) return group;
     }
     return null;
   }
 
-  String _eventLabel(Event event) {
-    final date = event.date!;
-    final type = event.type.isEmpty ? '' : ' (${event.type})';
-    return '${date.month}/${date.day}/${date.year} - ${event.title}$type';
+  Event? get _selectedEvent => _selectedGroup?.first;
+
+  String _eventLabel(EventGroup group) {
+    final type = group.first.type.isEmpty ? '' : ' (${group.first.type})';
+    return '${group.dateLabel} - ${group.first.title}$type';
   }
 
   List<ScoutProgress> get _attendingScouts =>
@@ -94,6 +128,7 @@ class _CalculationScreenState extends State<CalculationScreen> {
       final logo = await BrandingService.loadTroopLogo();
       final bytes = await CalculationPdfService.build(
         event: event,
+        dateLabel: _selectedGroup?.dateLabel,
         troopName: troopName,
         logoBytes: logo?.bytes,
         results: [
@@ -132,23 +167,47 @@ class _CalculationScreenState extends State<CalculationScreen> {
       appBar: AppBar(
         title: const Text('Calculation Page'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.print_outlined),
-            tooltip: _canPrint
-                ? 'Print requirements'
-                : 'Choose an event and scouts to print',
-            onPressed: _canPrint ? _print : null,
-          ),
+          if (_tabs.index == 0)
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: _canPrint
+                  ? 'Print requirements'
+                  : 'Choose an event and scouts to print',
+              onPressed: _canPrint ? _print : null,
+            ),
         ],
+        bottom: TabBar(
+          controller: _tabs,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: 'Event Calculations'),
+            Tab(text: 'Event Plans'),
+          ],
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(8),
+          : TabBarView(
+              controller: _tabs,
               children: [
-                _buildEventCard(),
-                _buildScoutsCard(),
-                ..._buildResults(),
+                ListView(
+                  padding: const EdgeInsets.all(8),
+                  children: [
+                    _buildEventCard(),
+                    _buildScoutsCard(),
+                    ..._buildResults(),
+                  ],
+                ),
+                EventPlanTab(
+                  key: ValueKey('plan|${_selectedEvent?.id}'),
+                  eventPicker: _buildEventCard(),
+                  days: _selectedGroup?.days ?? const [],
+                  scouts: _attendingScouts.isEmpty ? _scouts : _attendingScouts,
+                  onSavedToCalendar: _reloadEvents,
+                  sectionClassifier: widget.sectionClassifier,
+                ),
               ],
             ),
     );
