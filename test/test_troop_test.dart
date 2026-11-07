@@ -12,6 +12,7 @@ import 'package:scouting_app/services/ollama_classifier.dart';
 import 'package:scouting_app/services/program_grid_parser.dart';
 import 'package:scouting_app/services/requirement_calculator.dart';
 import 'package:scouting_app/services/scout_service.dart';
+import 'package:scouting_app/services/troop_stats_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Loads the fictional test_troop files the way the import screen does.
@@ -217,6 +218,25 @@ void main() {
       );
       expect(latin1.decode(bytes.sublist(0, 5)), '%PDF-');
     }
+  });
+
+  test('the statistics report matches the README', () async {
+    await importAll();
+    final stats = await TroopStatsService.build(
+      since: DateTime(2026, 1, 1),
+      now: DateTime(2026, 11, 7),
+    );
+    expect(stats.scouts.length, 15);
+    expect(stats.campouts, 2);
+    expect(stats.serviceProjects, 2);
+    expect(stats.serviceHours, greaterThan(0));
+    expect(stats.meritBadgesEarned, greaterThan(0));
+    final older = await TroopStatsService.build(
+      since: DateTime(2023, 1, 1),
+      now: DateTime(2026, 11, 7),
+    );
+    expect(older.campouts, 3);
+    expect(older.meritBadgesEarned, greaterThan(stats.meritBadgesEarned));
   });
 
   test('the sample data is fictional', () {

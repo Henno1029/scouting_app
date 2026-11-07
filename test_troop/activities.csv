@@ -1,28 +1,46 @@
-Scout Name,Date,Activity,Event,Location,Notes
-Ethan Walker,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Liam Ortiz,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Liam Ortiz,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Maya Patel,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Maya Patel,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Maya Patel,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,5 miles
-Noah Kim,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Mateo Núñez,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Mateo Núñez,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Ava Thompson,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Ava Thompson,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Ava Thompson,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,5 miles
-Sofia Bennett,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Lucas Greene,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Lucas Greene,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Isabella Chen,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Isabella Chen,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Isabella Chen,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,5 miles
-Oliver Hayes,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Charlotte Rivera,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Charlotte Rivera,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Henry Vance,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Henry Vance,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
-Henry Vance,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,5 miles
-Jon Reed,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Jon Reedy,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,2 nights
-Jon Reedy,09/19/2026,Service,Park Cleanup,Test Town Park,3 hours
+Scout Name,Date,Activity,Event,Location,Hours,Nights,Miles,Notes
+Ethan Walker,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Liam Ortiz,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Liam Ortiz,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Maya Patel,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Maya Patel,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Maya Patel,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Noah Kim,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Noah Kim,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Noah Kim,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Noah Kim,06/12/2026,Camping,Summer Camp,Camp Testwood,,6,,Week of summer camp
+Mateo Núñez,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Mateo Núñez,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Mateo Núñez,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Mateo Núñez,06/12/2026,Camping,Summer Camp,Camp Testwood,,6,,Week of summer camp
+Mateo Núñez,04/25/2026,Service,Food Drive,Test Town Food Bank,2.5,,,Sorting cans
+Ava Thompson,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Ava Thompson,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Ava Thompson,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Ava Thompson,06/12/2026,Camping,Summer Camp,Camp Testwood,,6,,Week of summer camp
+Ava Thompson,04/25/2026,Service,Food Drive,Test Town Food Bank,2.5,,,Sorting cans
+Ava Thompson,02/14/2025,Camping,Winter Overnight,Test Lake Scout Reservation,,1,,Older record for testing dates
+Sofia Bennett,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Lucas Greene,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Lucas Greene,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Isabella Chen,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Isabella Chen,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Isabella Chen,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Oliver Hayes,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Oliver Hayes,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Oliver Hayes,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Oliver Hayes,06/12/2026,Camping,Summer Camp,Camp Testwood,,6,,Week of summer camp
+Charlotte Rivera,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Charlotte Rivera,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Charlotte Rivera,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Charlotte Rivera,06/12/2026,Camping,Summer Camp,Camp Testwood,,6,,Week of summer camp
+Charlotte Rivera,04/25/2026,Service,Food Drive,Test Town Food Bank,2.5,,,Sorting cans
+Henry Vance,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Henry Vance,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair
+Henry Vance,08/08/2026,Hiking,Ridge Hike,Test Ridge Trail,,,5,Day hike
+Henry Vance,06/12/2026,Camping,Summer Camp,Camp Testwood,,6,,Week of summer camp
+Henry Vance,04/25/2026,Service,Food Drive,Test Town Food Bank,2.5,,,Sorting cans
+Henry Vance,02/14/2025,Camping,Winter Overnight,Test Lake Scout Reservation,,1,,Older record for testing dates
+Jon Reed,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Jon Reedy,10/02/2026,Camping,Fall Camp,Test Lake Scout Reservation,,2,,Tents and patrol cooking
+Jon Reedy,09/19/2026,Service,Park Cleanup,Test Town Park,3,,,Trash and trail repair

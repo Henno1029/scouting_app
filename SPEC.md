@@ -100,6 +100,14 @@ For the selected event, the user builds a plan. The draft is kept on the device 
 - **Sorting rows into sections** — on the Meeting Plan, a row added in the user's own words, such as "instruction", goes into the matching section using the local Ollama model only, with an Undo. If Ollama isn't running or nothing matches, the row stays and goes on the form's attached page.
 - **Official form** — a button fills out the official form for the event and opens the print dialog: the **Meeting Plan** for meetings and the **Scout Planning Worksheet** (No. 512-505) for everything else, such as campouts. The form's own questions are answered on the tab. Anything with no box on the form, or too long for its box, goes in full on an attached page.
 
+## Scout Roster and Statistics printouts
+
+Both buttons are on the Scout List Screen and open the print dialog.
+
+- **Print Scout Roster** — every scout's name, rank, patrol and member ID, sorted by patrol.
+- **Print out Statistics** — the user picks a start date, and the report runs from then through today: each scout's ranks and merit badges earned, plus troop totals such as campouts, camping nights, service projects and hours, miles hiked, awards, requirements, events by type and most-earned badges.
+- Campouts come from finished calendar campouts, with a multi-day campout counted once, plus others found only in the activity report. Service hours, nights and miles come from the activity report's Hours, Nights and Miles columns, or text like "3 hours" in Notes.
+
 ## Planned: Activity Requirements Check
 
 - Use each scout's imported activity log (past activities) to indicate whether they have met the participation/activity requirements for the first three ranks: **Tenderfoot**, **Second Class**, and **First Class**.

@@ -64,6 +64,11 @@ Requirement records with a blank completion date count as not done, so those req
 - On a campout, press **Fill out Scout Planning Worksheet**.
 - Enter a very long answer in a form field to see it carried to the attached page.
 
+**Scout Page printouts**
+- Press **Print Scout Roster** to get everyone sorted by patrol.
+- Press **Print out Statistics** and choose January 1, 2026. It should show 2 campouts from the activity report (Fall Camp and Summer Camp), 2 service projects, and each scout's ranks and merit badges from 2026.
+- Run it again from January 1, 2023 to see much bigger numbers and the older Winter Overnight campout.
+
 **Everything else**
 - **Scout Page:** open a scout to see ranks, merit badges and requirement progress. Edit a patrol or clear one.
 - **Event Page:** try month and year views, the type filter, editing, deleting, and the year PDF.

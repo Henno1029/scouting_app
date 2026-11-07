@@ -1,9 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'services/advancement_service.dart';
 import 'services/branding_service.dart';
+import 'services/troop_report_pdf_service.dart';
+import 'services/troop_stats_service.dart';
 import 'theme/app_theme.dart';
 
 class ScoutListScreen extends StatefulWidget {
@@ -86,6 +90,69 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
       _scouts.removeAt(index);
     });
     _saveScouts();
+  }
+
+  Future<void> _printRoster() async {
+    if (_scouts.isEmpty) {
+      _showMessage('Add some scouts first.');
+      return;
+    }
+    try {
+      final index = await AdvancementIndex.load();
+      final logo = await BrandingService.loadTroopLogo();
+      final bytes = await TroopReportPdfService.buildRoster(
+        scouts: [
+          for (final scout in _scouts)
+            RosterEntry(
+              name: scout['name'] ?? '',
+              rank: index.rank(scout['name'] ?? '') ?? scout['rank'] ?? '',
+              patrol: scout['patrol'] ?? '',
+              memberId: scout['memberId'] ?? '',
+            ),
+        ],
+        troopName: await BrandingService.loadTroopName() ?? 'Troop Manager',
+        printedOn: DateTime.now(),
+        logoBytes: logo?.bytes,
+      );
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'scout_roster.pdf',
+      );
+    } catch (error) {
+      _showMessage('Printing failed: $error');
+    }
+  }
+
+  Future<void> _printStatistics() async {
+    final now = DateTime.now();
+    final since = await showDatePicker(
+      context: context,
+      helpText: 'Show statistics since',
+      initialDate: DateTime(now.year, 1, 1),
+      firstDate: DateTime(2000),
+      lastDate: now,
+    );
+    if (since == null) return;
+    try {
+      final logo = await BrandingService.loadTroopLogo();
+      final bytes = await TroopReportPdfService.buildStatistics(
+        stats: await TroopStatsService.build(since: since),
+        troopName: await BrandingService.loadTroopName() ?? 'Troop Manager',
+        logoBytes: logo?.bytes,
+      );
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'troop_statistics.pdf',
+      );
+    } catch (error) {
+      _showMessage('Printing failed: $error');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _patrolEmblem(String patrol) {
@@ -180,6 +247,24 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
               style: ElevatedButton.styleFrom(
                 minimumSize: Size(200, 50),
               ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _printRoster,
+                  icon: const Icon(Icons.print_outlined),
+                  label: const Text('Print Scout Roster'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _printStatistics,
+                  icon: const Icon(Icons.bar_chart),
+                  label: const Text('Print out Statistics'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Row(
