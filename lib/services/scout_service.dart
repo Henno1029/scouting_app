@@ -18,6 +18,15 @@ class ScoutService {
   static String _normalize(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
+  static Future<List<Map<String, String>>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_scoutsKey);
+    if (raw == null || raw.isEmpty) return [];
+    return (jsonDecode(raw) as List)
+        .map((e) => Map<String, String>.from(e as Map))
+        .toList();
+  }
+
   static Future<void> updateScout(
       String originalName, Map<String, String> changes) async {
     final prefs = await SharedPreferences.getInstance();

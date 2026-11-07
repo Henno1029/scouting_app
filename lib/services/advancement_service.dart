@@ -110,13 +110,25 @@ class AdvancementService {
 
   static Future<String?> importedRank(String scoutName) async {
     final entries = await importedAdvancements(scoutName);
-    final titles = entries
+    final earned = entries
         .where((entry) => entry.isRank)
-        .map((entry) => _normalized(entry.title))
-        .toList();
+        .map((entry) => rankFromTitle(entry.title))
+        .toSet();
     for (final rank in rankOrder.reversed) {
+      if (earned.contains(rank)) return rank;
+    }
+    return null;
+  }
+
+  /// The rank a title names, such as "Life" from "Life Scout Rank". Matches the
+  /// whole title because Individual Advancement Record imports also store
+  /// requirement text as type "Rank", and text like "wildlife" or "start"
+  /// must not count as earning Life or Star.
+  static String? rankFromTitle(String title) {
+    final normalized = _normalized(title);
+    for (final rank in rankOrder) {
       final target = _normalized(rank);
-      if (titles.any((title) => title.contains(target))) return rank;
+      if (RegExp('^$target(scout)?(rank)?\$').hasMatch(normalized)) return rank;
     }
     return null;
   }

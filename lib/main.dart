@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'screens/branding_screen.dart';
+import 'screens/calculation_screen.dart';
 import 'screens/event_list_screen.dart';
 import 'screens/import_screen.dart';
 import 'scoutList_screen.dart';
@@ -29,7 +30,7 @@ class TroopApp extends StatelessWidget {
           return ScoutDetailScreen(scout: scout);
         },
         "/eventList": (context) => EventListScreen(),
-        "/calculation": (context) => Placeholder(),   // temporary
+        "/calculation": (context) => const CalculationScreen(),
         "/branding": (context) => BrandingScreen(),
         "/import": (context) => ImportScreen(),
       },
