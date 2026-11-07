@@ -236,12 +236,14 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                   : ListView.builder(
                       itemCount: _scouts.length,
                       itemBuilder: (context, index) {
+                  // ScoutService.updateScout drops blank fields from storage,
+                  // so patrol and rank may be missing.
+                  final rank = _scouts[index]['rank'] ?? '';
+                  final patrol = _scouts[index]['patrol'] ?? '';
                   return ListTile(
-                    leading: _patrolEmblem(_scouts[index]['patrol'] ?? ''),
+                    leading: _patrolEmblem(patrol),
                     title: Text(_scouts[index]['name']!),
-                    subtitle: Text(_scouts[index]['patrol']!.isEmpty
-                        ? _scouts[index]['rank']!
-                        : '${_scouts[index]['rank']} • ${_scouts[index]['patrol']}'),
+                    subtitle: Text(patrol.isEmpty ? rank : '$rank • $patrol'),
                     onTap: () => Navigator.pushNamed(
                       context,
                       '/scoutDetail',
