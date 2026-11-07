@@ -1,0 +1,15 @@
+BSA Member ID,First Name,Middle Name,Last Name,Rank,Patrol Name,Position,Date of Birth,Phone,Email,Parent Name,Parent Phone,Parent Email
+90000101,Ethan,,Walker,,Fox,Scout,2015-03-14,555-0110,scout.ethan.walker@example.com,Parent Walker,555-0140,parent.ethan.walker@example.com
+90000102,Liam,James,Ortiz,Scout,Fox,Scout,2014-09-02,555-0111,scout.liam.ortiz@example.com,Parent Ortiz,555-0141,parent.liam.ortiz@example.com
+90000103,Maya,Rose,Patel,Scout,Fox,Assistant Patrol Leader,2014-05-21,555-0112,scout.maya.patel@example.com,Parent Patel,555-0142,parent.maya.patel@example.com
+90000104,Noah,,Kim,Tenderfoot,Hawk,Scout,2013-11-30,555-0113,scout.noah.kim@example.com,Parent Kim,555-0143,parent.noah.kim@example.com
+90000105,Mateo,,Núñez,Tenderfoot,Hawk,Patrol Leader,2013-07-08,555-0114,scout.mateo.nunez@example.com,Parent Núñez,555-0144,parent.mateo.nunez@example.com
+90000106,Ava,,Thompson,Second Class,Hawk,Scribe,2013-02-17,555-0115,scout.ava.thompson@example.com,Parent Thompson,555-0145,parent.ava.thompson@example.com
+90000107,Sofia,Grace,Bennett,Second Class,Wolf,Patrol Leader,2012-12-03,555-0116,scout.sofia.bennett@example.com,Parent Bennett,555-0146,parent.sofia.bennett@example.com
+90000108,Lucas,,Greene,First Class,Wolf,Quartermaster,2012-06-25,555-0117,scout.lucas.greene@example.com,Parent Greene,555-0147,parent.lucas.greene@example.com
+90000109,Isabella,,Chen,First Class,Wolf,Troop Guide,2012-01-12,555-0118,scout.isabella.chen@example.com,Parent Chen,555-0148,parent.isabella.chen@example.com
+90000110,Oliver,,Hayes,Star,Raven,Assistant Senior Patrol Leader,2011-08-19,555-0119,scout.oliver.hayes@example.com,Parent Hayes,555-0149,parent.oliver.hayes@example.com
+90000111,Charlotte,Anne,Rivera,Life,Raven,Senior Patrol Leader,2010-10-30,555-0120,scout.charlotte.rivera@example.com,Parent Rivera,555-0150,parent.charlotte.rivera@example.com
+90000112,Henry,,Vance,Eagle,Raven,Junior Assistant Scoutmaster,2009-04-11,555-0121,scout.henry.vance@example.com,Parent Vance,555-0151,parent.henry.vance@example.com
+90000113,Jon,,Reed,Tenderfoot,,Scout,2014-01-09,555-0122,scout.jon.reed@example.com,Parent Reed,555-0152,parent.jon.reed@example.com
+90000114,Jon,,Reedy,Scout,Fox,Scout,2014-08-27,555-0123,scout.jon.reedy@example.com,Parent Reedy,555-0153,parent.jon.reedy@example.com
