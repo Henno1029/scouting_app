@@ -17,7 +17,8 @@ class EventEditService {
     final decoded = jsonDecode(raw);
     if (decoded is! Map) return {};
     return decoded.map(
-        (k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)));
+      (k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
+    );
   }
 
   static Future<void> _save(Map<String, Map<String, dynamic>> edits) async {
@@ -39,9 +40,7 @@ class EventEditService {
     if (edits.isEmpty) return events;
     return [
       for (final event in events)
-        edits.containsKey(event.id)
-            ? Event.fromJson(edits[event.id]!)
-            : event,
+        edits.containsKey(event.id) ? Event.fromJson(edits[event.id]!) : event,
     ];
   }
 

@@ -3,6 +3,9 @@ import 'package:scouting_app/models/event.dart';
 import 'package:scouting_app/services/year_calendar_pdf_service.dart';
 
 void main() {
+  // PDFs load their font from the app's bundled assets.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('year calendar PDF bytes are generated', () async {
     final events = [
       Event(id: 'e1', title: 'Troop Meeting', date: DateTime(2027, 1, 6), type: 'Meeting'),

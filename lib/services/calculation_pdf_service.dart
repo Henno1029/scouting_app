@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../data/rank_requirements.dart';
 import '../models/event.dart';
+import 'pdf_fonts.dart';
 import 'requirement_calculator.dart';
 
 /// One attending scout and what they could complete at the event.
@@ -30,7 +31,7 @@ class CalculationPdfService {
     /// Replaces the event's own date, for an event spanning several days.
     String? dateLabel,
   }) async {
-    final doc = pw.Document();
+    final doc = pw.Document(theme: await PdfFonts.theme());
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.letter,

@@ -138,6 +138,9 @@ class OllamaTypeClassifier {
               'model': model,
               'prompt': prompt,
               'stream': false,
+              // Models that think first can spend the reply limit on it
+              // and return nothing.
+              'think': false,
               'format': 'json',
               'options': {
                 'num_ctx': numCtx,
@@ -172,10 +175,7 @@ class OllamaTypeClassifier {
   }
 
   String _buildPrompt(List<String> titles) {
-    final items = titles
-        .map((t) => '"${_escape(t)}"')
-        .toList()
-        .join(', ');
+    final items = titles.map(jsonEncode).join(', ');
     return [
       'You are classifying Boy Scout troop calendar events.',
       'Return JSON where each key is the exact event title and the value is '
@@ -196,9 +196,6 @@ class OllamaTypeClassifier {
     }
     return null;
   }
-
-  static String _escape(String value) =>
-      value.replaceAll('"', r'\"').replaceAll('\\', r'\\');
 }
 
 /// Sorts a meeting agenda row written in someone's own words into a section of
@@ -209,7 +206,8 @@ class OllamaSectionClassifier {
     'preopening': 'an activity while scouts arrive, before the meeting starts',
     'opening':
         'opening ceremony, flag presentation, Oath and Law, uniform inspection',
-    'group': 'instruction or a talk for the whole troop. The plain word '
+    'group':
+        'instruction or a talk for the whole troop. The plain word '
         '"instruction" means this section',
     'essential': 'skills instruction for the newest scouts',
     'challenging': 'skills instruction for experienced scouts',

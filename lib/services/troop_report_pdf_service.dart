@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import 'calculation_pdf_service.dart';
+import 'pdf_fonts.dart';
 import 'troop_stats_service.dart';
 
 /// One scout's row on the printed roster.
@@ -12,12 +13,14 @@ class RosterEntry {
   final String rank;
   final String patrol;
   final String memberId;
+  final DateTime? birthday;
 
   const RosterEntry({
     required this.name,
     this.rank = '',
     this.patrol = '',
     this.memberId = '',
+    this.birthday,
   });
 }
 
@@ -38,7 +41,11 @@ class TroopReportPdfService {
       : value.toStringAsFixed(1);
 
   static pw.Widget _header(
-      String troopName, String title, String detail, Uint8List? logoBytes) {
+    String troopName,
+    String title,
+    String detail,
+    Uint8List? logoBytes,
+  ) {
     return pw.Row(
       children: [
         if (logoBytes != null) ...[
@@ -49,14 +56,18 @@ class TroopReportPdfService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text(_clean(troopName),
-                  style: pw.TextStyle(fontSize: 11, color: _grey)),
-              pw.Text(title,
-                  style: pw.TextStyle(
-                    fontSize: 20,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _blue,
-                  )),
+              pw.Text(
+                _clean(troopName),
+                style: pw.TextStyle(fontSize: 11, color: _grey),
+              ),
+              pw.Text(
+                title,
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _blue,
+                ),
+              ),
               pw.Text(detail, style: pw.TextStyle(fontSize: 10, color: _grey)),
             ],
           ),
@@ -110,7 +121,10 @@ class TroopReportPdfService {
     );
   }
 
-  static final _border = pw.TableBorder.all(color: PdfColors.grey400, width: 0.4);
+  static final _border = pw.TableBorder.all(
+    color: PdfColors.grey400,
+    width: 0.4,
+  );
 
   // ------------------------------------------------------------------ Roster
 
@@ -119,54 +133,83 @@ class TroopReportPdfService {
     required String troopName,
     required DateTime printedOn,
     Uint8List? logoBytes,
-  }) {
+  }) async {
     // Scouts with no patrol go after those with one.
-    final sorted = [...scouts]..sort((a, b) {
-        if (a.patrol.isEmpty != b.patrol.isEmpty) return a.patrol.isEmpty ? 1 : -1;
-        final byPatrol = a.patrol.toLowerCase().compareTo(b.patrol.toLowerCase());
+    final sorted = [...scouts]
+      ..sort((a, b) {
+        if (a.patrol.isEmpty != b.patrol.isEmpty)
+          return a.patrol.isEmpty ? 1 : -1;
+        final byPatrol = a.patrol.toLowerCase().compareTo(
+          b.patrol.toLowerCase(),
+        );
         return byPatrol != 0
             ? byPatrol
             : a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
 
-    final doc = pw.Document();
-    doc.addPage(pw.MultiPage(
-      pageFormat: PdfPageFormat.letter,
-      margin: const pw.EdgeInsets.all(36),
-      footer: _footer,
-      build: (_) => [
-        _header(
-          troopName,
-          'Scout Roster',
-          '${scouts.length} ${scouts.length == 1 ? 'scout' : 'scouts'} | '
-              'Printed ${_date(printedOn)}',
-          logoBytes,
-        ),
-        pw.SizedBox(height: 12),
-        pw.Table(
-          border: _border,
-          columnWidths: const {
-            0: pw.FixedColumnWidth(24),
-            1: pw.FlexColumnWidth(3),
-            2: pw.FlexColumnWidth(1.6),
-            3: pw.FlexColumnWidth(1.6),
-            4: pw.FlexColumnWidth(1.4),
-          },
-          children: [
-            _headerRow(['#', 'Name', 'Rank', 'Patrol', 'BSA Member ID']),
-            for (var i = 0; i < sorted.length; i++)
-              pw.TableRow(children: [
-                _cell('${i + 1}'),
-                _cell(sorted[i].name, bold: true),
-                _cell(sorted[i].rank),
-                _cell(sorted[i].patrol),
-                _cell(sorted[i].memberId),
+    final doc = pw.Document(theme: await PdfFonts.theme());
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.letter,
+        margin: const pw.EdgeInsets.all(36),
+        footer: _footer,
+        build: (_) => [
+          _header(
+            troopName,
+            'Scout Roster',
+            '${scouts.length} ${scouts.length == 1 ? 'scout' : 'scouts'} | '
+                'Printed ${_date(printedOn)}',
+            logoBytes,
+          ),
+          pw.SizedBox(height: 12),
+          pw.Table(
+            border: _border,
+            columnWidths: const {
+              0: pw.FixedColumnWidth(24),
+              1: pw.FlexColumnWidth(3),
+              2: pw.FlexColumnWidth(1.6),
+              3: pw.FlexColumnWidth(1.4),
+              4: pw.FixedColumnWidth(30),
+              5: pw.FlexColumnWidth(1.4),
+            },
+            children: [
+              _headerRow([
+                '#',
+                'Name',
+                'Rank',
+                'Patrol',
+                'Age',
+                'BSA Member ID',
               ]),
-          ],
-        ),
-      ],
-    ));
+              for (var i = 0; i < sorted.length; i++)
+                pw.TableRow(
+                  children: [
+                    _cell('${i + 1}'),
+                    _cell(sorted[i].name, bold: true),
+                    _cell(sorted[i].rank),
+                    _cell(sorted[i].patrol),
+                    _cell(_ageText(sorted[i].birthday, printedOn)),
+                    _cell(sorted[i].memberId),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
     return doc.save();
+  }
+
+  static String _ageText(DateTime? birthday, DateTime on) {
+    if (birthday == null) return '';
+    final years =
+        on.year -
+        birthday.year -
+        ((on.month < birthday.month ||
+                (on.month == birthday.month && on.day < birthday.day))
+            ? 1
+            : 0);
+    return years < 0 ? '' : '$years';
   }
 
   // -------------------------------------------------------------- Statistics
@@ -175,7 +218,7 @@ class TroopReportPdfService {
     required TroopStats stats,
     required String troopName,
     Uint8List? logoBytes,
-  }) {
+  }) async {
     final totals = <String, String>{
       'Campouts': _amount(stats.campouts),
       'Camping nights (troop)': _amount(stats.troopCampingNights),
@@ -195,110 +238,164 @@ class TroopReportPdfService {
       'Requirements completed': _amount(stats.requirementsCompleted),
     };
 
-    final doc = pw.Document();
-    doc.addPage(pw.MultiPage(
-      pageFormat: PdfPageFormat.letter,
-      margin: const pw.EdgeInsets.all(36),
-      footer: _footer,
-      build: (_) => [
-        _header(
-          troopName,
-          'Troop Statistics',
-          '${_date(stats.since)} through ${_date(stats.until)} | '
-              '${stats.scouts.length} scouts on the roster',
-          logoBytes,
-        ),
-        pw.SizedBox(height: 6),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(child: _totalsBlock('Troop activity', totals)),
-            pw.SizedBox(width: 12),
-            pw.Expanded(child: _totalsBlock('Advancement', advancement)),
-          ],
-        ),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
-              child: _totalsBlock(
-                'Ranks earned, by rank',
-                _asText(stats.ranksEarnedByRank),
-                empty: 'None in these dates',
+    final doc = pw.Document(theme: await PdfFonts.theme());
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.letter,
+        margin: const pw.EdgeInsets.all(36),
+        footer: _footer,
+        build: (_) => [
+          _header(
+            troopName,
+            'Troop Statistics',
+            '${_date(stats.since)} through ${_date(stats.until)} | '
+                '${stats.scouts.length} scouts on the roster',
+            logoBytes,
+          ),
+          pw.SizedBox(height: 6),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(child: _totalsBlock('Troop activity', totals)),
+              pw.SizedBox(width: 12),
+              pw.Expanded(child: _totalsBlock('Advancement', advancement)),
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _totalsBlock(
+                  'Ranks earned, by rank',
+                  _asText(stats.ranksEarnedByRank),
+                  empty: 'None in these dates',
+                ),
               ),
-            ),
-            pw.SizedBox(width: 12),
-            pw.Expanded(
-              child: _totalsBlock(
-                'Most-earned merit badges',
-                {
+              pw.SizedBox(width: 12),
+              pw.Expanded(
+                child: _totalsBlock('Most-earned merit badges', {
                   for (final entry in stats.topMeritBadges())
                     entry.key: '${entry.value}',
-                },
-                empty: 'None in these dates',
+                }, empty: 'None in these dates'),
               ),
-            ),
-          ],
-        ),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
-              child: _totalsBlock(
-                'Calendar events held, by type',
-                _asText(stats.eventsByType),
-                empty: 'None in these dates',
-              ),
-            ),
-            pw.SizedBox(width: 12),
-            pw.Expanded(
-              child: _totalsBlock(
-                'Troop by current rank',
-                _asText(stats.currentRanks),
-                empty: 'No ranks recorded',
-              ),
-            ),
-          ],
-        ),
-        _section('Each scout'),
-        pw.Table(
-          border: _border,
-          columnWidths: const {
-            0: pw.FlexColumnWidth(2),
-            1: pw.FlexColumnWidth(2),
-            2: pw.FlexColumnWidth(3.4),
-            3: pw.FixedColumnWidth(42),
-            4: pw.FixedColumnWidth(42),
-          },
-          children: [
-            _headerRow(
-                ['Scout', 'Ranks earned', 'Merit badges earned', 'Service hours', 'Camp nights']),
-            for (final scout in stats.scouts)
-              pw.TableRow(children: [
-                _cell(
-                  scout.rank.isEmpty
-                      ? scout.name
-                      : '${scout.name}\n(${scout.rank})',
-                  bold: true,
-                  size: 9,
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _totalsBlock(
+                  'Calendar events held, by type',
+                  _asText(stats.eventsByType),
+                  empty: 'None in these dates',
                 ),
-                _cell(_earnedList(scout.ranks), size: 9),
-                _cell(_earnedList(scout.meritBadges), size: 9),
-                _cell(_amount(scout.serviceHours), size: 9),
-                _cell(_amount(scout.campingNights), size: 9),
-              ]),
+              ),
+              pw.SizedBox(width: 12),
+              pw.Expanded(
+                child: _totalsBlock(
+                  'Troop by current rank',
+                  _asText(stats.currentRanks),
+                  empty: 'No ranks recorded',
+                ),
+              ),
+            ],
+          ),
+          if (stats.patrolLeaderboard.isNotEmpty) ...[
+            _section('Patrol leaderboard'),
+            pw.Table(
+              border: _border,
+              columnWidths: const {
+                0: pw.FixedColumnWidth(24),
+                1: pw.FlexColumnWidth(2),
+                2: pw.FlexColumnWidth(1),
+                3: pw.FlexColumnWidth(1),
+                4: pw.FlexColumnWidth(1.2),
+                5: pw.FlexColumnWidth(1.4),
+                6: pw.FlexColumnWidth(1.2),
+                7: pw.FlexColumnWidth(1.2),
+              },
+              children: [
+                _headerRow([
+                  '#',
+                  'Patrol',
+                  'Scouts',
+                  'Ranks',
+                  'Merit badges',
+                  'Per scout',
+                  'Service hours',
+                  'Camp nights',
+                ]),
+                for (final (i, patrol) in stats.patrolLeaderboard.indexed)
+                  pw.TableRow(
+                    children: [
+                      _cell('${i + 1}', bold: i == 0),
+                      _cell(patrol.patrol, bold: true),
+                      _cell('${patrol.scouts}'),
+                      _cell('${patrol.ranks}'),
+                      _cell('${patrol.meritBadges}'),
+                      _cell(patrol.advancementPerScout.toStringAsFixed(1)),
+                      _cell(_amount(patrol.serviceHours)),
+                      _cell(_amount(patrol.campingNights)),
+                    ],
+                  ),
+              ],
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 3),
+              child: pw.Text(
+                'Ranked by ranks and merit badges earned per scout, then '
+                'service hours, so a big patrol doesn\'t win on size alone.',
+                style: pw.TextStyle(fontSize: 8, color: _grey),
+              ),
+            ),
           ],
-        ),
-        pw.SizedBox(height: 8),
-        pw.Text(
-          'Service hours, nights and miles come from the imported activity '
-          'report. Campouts count calendar campouts already finished, plus any '
-          'others in the activity report, with a multi-day campout counted once.'
-          '${stats.undatedRecords > 0 ? ' ${stats.undatedRecords} advancement record(s) had no readable date and were not counted.' : ''}',
-          style: pw.TextStyle(fontSize: 8, color: _grey),
-        ),
-      ],
-    ));
+          _section('Each scout'),
+          pw.Table(
+            border: _border,
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2),
+              1: pw.FlexColumnWidth(2),
+              2: pw.FlexColumnWidth(3.4),
+              3: pw.FixedColumnWidth(42),
+              4: pw.FixedColumnWidth(42),
+            },
+            children: [
+              _headerRow([
+                'Scout',
+                'Ranks earned',
+                'Merit badges earned',
+                'Service hours',
+                'Camp nights',
+              ]),
+              for (final scout in stats.scouts)
+                pw.TableRow(
+                  children: [
+                    _cell(
+                      scout.rank.isEmpty
+                          ? scout.name
+                          : '${scout.name}\n(${scout.rank})',
+                      bold: true,
+                      size: 9,
+                    ),
+                    _cell(_earnedList(scout.ranks), size: 9),
+                    _cell(_earnedList(scout.meritBadges), size: 9),
+                    _cell(_amount(scout.serviceHours), size: 9),
+                    _cell(_amount(scout.campingNights), size: 9),
+                  ],
+                ),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Service hours, nights and miles come from the imported activity '
+            'report. Campouts count calendar campouts already finished, plus any '
+            'others in the activity report, with a multi-day campout counted once.'
+            '${stats.undatedRecords > 0 ? ' ${stats.undatedRecords} advancement record(s) had no readable date and were not counted.' : ''}',
+            style: pw.TextStyle(fontSize: 8, color: _grey),
+          ),
+        ],
+      ),
+    );
     return doc.save();
   }
 
@@ -308,12 +405,17 @@ class TroopReportPdfService {
   static String _earnedList(List<EarnedItem> items) => items.isEmpty
       ? '-'
       : items
-          .map((item) =>
-              '${item.title} (${item.date.month}/${item.date.day}/${item.date.year})')
-          .join('\n');
+            .map(
+              (item) =>
+                  '${item.title} (${item.date.month}/${item.date.day}/${item.date.year})',
+            )
+            .join('\n');
 
-  static pw.Widget _totalsBlock(String title, Map<String, String> rows,
-      {String empty = ''}) {
+  static pw.Widget _totalsBlock(
+    String title,
+    Map<String, String> rows, {
+    String empty = '',
+  }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -329,10 +431,9 @@ class TroopReportPdfService {
             },
             children: [
               for (final entry in rows.entries)
-                pw.TableRow(children: [
-                  _cell(entry.key),
-                  _cell(entry.value, bold: true),
-                ]),
+                pw.TableRow(
+                  children: [_cell(entry.key), _cell(entry.value, bold: true)],
+                ),
             ],
           ),
       ],

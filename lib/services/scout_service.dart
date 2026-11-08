@@ -22,22 +22,36 @@ class ScoutService {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_scoutsKey);
     if (raw == null || raw.isEmpty) return [];
-    return (jsonDecode(raw) as List)
-        .map((e) => Map<String, String>.from(e as Map))
-        .toList();
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return [];
+    return [
+      for (final entry in decoded)
+        if (entry is Map) toScout(entry),
+    ];
   }
 
+  /// One stored scout as text fields. Values that aren't text, such as a
+  /// number or a missing value from an older copy of the data, are converted
+  /// or dropped instead of crashing the screen.
+  static Map<String, String> toScout(Map<dynamic, dynamic> entry) => {
+    for (final field in entry.entries)
+      if (field.value != null) '${field.key}': '${field.value}',
+  };
+
   static Future<void> updateScout(
-      String originalName, Map<String, String> changes) async {
+    String originalName,
+    Map<String, String> changes,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_scoutsKey);
     if (raw == null || raw.isEmpty) return;
     final list = (jsonDecode(raw) as List)
-        .map((e) => Map<String, String>.from(e as Map))
+        .map((e) => ScoutService.toScout(e as Map))
         .toList();
     final key = _normalize(originalName);
-    final index =
-        list.indexWhere((scout) => _normalize(scout['name'] ?? '') == key);
+    final index = list.indexWhere(
+      (scout) => _normalize(scout['name'] ?? '') == key,
+    );
     if (index < 0) return;
     final merged = Map<String, String>.from(list[index]);
     changes.forEach((field, value) {

@@ -41,6 +41,29 @@ class ScoutStats {
   });
 }
 
+/// One patrol's totals on the leaderboard.
+class PatrolStats {
+  final String patrol;
+  final int scouts;
+  final int ranks;
+  final int meritBadges;
+  final double serviceHours;
+  final double campingNights;
+
+  const PatrolStats({
+    required this.patrol,
+    required this.scouts,
+    required this.ranks,
+    required this.meritBadges,
+    required this.serviceHours,
+    required this.campingNights,
+  });
+
+  /// Advancement per scout, so a big patrol doesn't win on size alone.
+  double get advancementPerScout =>
+      scouts == 0 ? 0 : (ranks + meritBadges) / scouts;
+}
+
 /// The troop's totals from [since] through [until].
 class TroopStats {
   final DateTime since;
@@ -114,6 +137,42 @@ class TroopStats {
     };
   }
 
+  /// Patrols ranked by ranks and merit badges earned per scout, then by
+  /// service hours. Scouts without a patrol are left out.
+  List<PatrolStats> get patrolLeaderboard {
+    final byPatrol = <String, List<ScoutStats>>{};
+    for (final scout in scouts) {
+      if (scout.patrol.isEmpty) continue;
+      byPatrol.putIfAbsent(scout.patrol, () => []).add(scout);
+    }
+    final rows = [
+      for (final entry in byPatrol.entries)
+        PatrolStats(
+          patrol: entry.key,
+          scouts: entry.value.length,
+          ranks: entry.value.fold(0, (sum, s) => sum + s.ranks.length),
+          meritBadges: entry.value.fold(
+            0,
+            (sum, s) => sum + s.meritBadges.length,
+          ),
+          serviceHours: entry.value.fold(0.0, (sum, s) => sum + s.serviceHours),
+          campingNights: entry.value.fold(
+            0.0,
+            (sum, s) => sum + s.campingNights,
+          ),
+        ),
+    ];
+    rows.sort((a, b) {
+      final byAdvancement = b.advancementPerScout.compareTo(
+        a.advancementPerScout,
+      );
+      if (byAdvancement != 0) return byAdvancement;
+      final byService = b.serviceHours.compareTo(a.serviceHours);
+      return byService != 0 ? byService : a.patrol.compareTo(b.patrol);
+    });
+    return rows;
+  }
+
   /// The most-earned merit badges, most common first.
   List<MapEntry<String, int>> topMeritBadges({int limit = 5}) {
     final entries = _countTitles((scout) => scout.meritBadges).entries.toList()
@@ -137,8 +196,10 @@ class TroopStatsService {
       DateTime(date.year, date.month, date.day);
 
   static double? _number(String text, String unit) {
-    final match = RegExp('(\\d+(?:\\.\\d+)?)\\s*$unit', caseSensitive: false)
-        .firstMatch(text);
+    final match = RegExp(
+      '(\\d+(?:\\.\\d+)?)\\s*$unit',
+      caseSensitive: false,
+    ).firstMatch(text);
     return match == null ? null : double.parse(match.group(1)!);
   }
 
@@ -168,7 +229,8 @@ class TroopStatsService {
   }) async {
     final start = _day(since);
     final end = _day(now ?? DateTime.now());
-    bool inRange(DateTime date) => !_day(date).isBefore(start) && !_day(date).isAfter(end);
+    bool inRange(DateTime date) =>
+        !_day(date).isBefore(start) && !_day(date).isAfter(end);
 
     final activity = await _readActivity(inRange);
     final index = await AdvancementIndex.load();
@@ -179,18 +241,18 @@ class TroopStatsService {
     for (final scout in await ScoutService.load()) {
       final name = scout['name'] ?? '';
       if (name.isEmpty) continue;
-      final rank = index.rank(name) ?? scout['rank'] ?? '';
+      final memberId = scout['memberId'] ?? '';
+      final rank = index.rank(name, memberId: memberId) ?? scout['rank'] ?? '';
       if (rank.isNotEmpty) currentCounts[rank] = (currentCounts[rank] ?? 0) + 1;
 
       final ranks = <EarnedItem>[];
       final badges = <EarnedItem>[];
       final awards = <EarnedItem>[];
-      for (final entry in index.advancements(name)) {
+      for (final entry in index.advancements(name, memberId: memberId)) {
         final rankName = entry.isRank
             ? AdvancementService.rankFromTitle(entry.title)
             : null;
-        final counts =
-            rankName != null || entry.isMeritBadge || entry.isAward;
+        final counts = rankName != null || entry.isMeritBadge || entry.isAward;
         if (!counts) continue;
         final date = AppDates.parse(entry.date);
         if (date == null) {
@@ -200,45 +262,55 @@ class TroopStatsService {
           (rankName != null
                   ? ranks
                   : entry.isMeritBadge
-                      ? badges
-                      : awards)
+                  ? badges
+                  : awards)
               .add(item);
         }
       }
       for (final list in [ranks, badges, awards]) {
         list.sort((a, b) => a.date.compareTo(b.date));
       }
-      final requirements = index.requirements(name).where((entry) {
+      final requirements = index.requirements(name, memberId: memberId).where((
+        entry,
+      ) {
         final date = AppDates.parse(entry.date);
         return date != null && inRange(date);
       }).length;
 
       final logged = activity.perScout[_nameKey(name)];
-      scouts.add(ScoutStats(
-        name: name,
-        patrol: scout['patrol'] ?? '',
-        rank: rank,
-        ranks: ranks,
-        meritBadges: badges,
-        awards: awards,
-        requirements: requirements,
-        serviceHours: logged?.hours ?? 0,
-        campingNights: logged?.nights ?? 0,
-        hikingMiles: logged?.miles ?? 0,
-      ));
+      scouts.add(
+        ScoutStats(
+          name: name,
+          patrol: scout['patrol'] ?? '',
+          rank: rank,
+          ranks: ranks,
+          meritBadges: badges,
+          awards: awards,
+          requirements: requirements,
+          serviceHours: logged?.hours ?? 0,
+          campingNights: logged?.nights ?? 0,
+          hikingMiles: logged?.miles ?? 0,
+        ),
+      );
     }
     scouts.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     final calendar = EventGroup.combine(await EventService.load())
-        .where((group) =>
-            !_day(group.start).isBefore(start) && !_day(group.end).isAfter(end))
+        .where(
+          (group) =>
+              !_day(group.start).isBefore(start) &&
+              !_day(group.end).isAfter(end),
+        )
         .toList();
 
-    final campGroups =
-        calendar.where((group) => _isCampType(group.first.type)).toList();
-    bool onCalendar(DateTime date) => campGroups.any((group) =>
-        !_day(date).isBefore(_day(group.start)) &&
-        !_day(date).isAfter(_day(group.end)));
+    final campGroups = calendar
+        .where((group) => _isCampType(group.first.type))
+        .toList();
+    bool onCalendar(DateTime date) => campGroups.any(
+      (group) =>
+          !_day(date).isBefore(_day(group.start)) &&
+          !_day(date).isAfter(_day(group.end)),
+    );
     final logOnlyCampouts = activity.campouts.entries
         .where((entry) => !onCalendar(entry.value.date))
         .map((entry) => entry.value)
@@ -247,13 +319,21 @@ class TroopStatsService {
     final calendarNights = campGroups.fold<double>(
       0,
       (sum, group) =>
-          sum + (DateTime.utc(group.end.year, group.end.month, group.end.day)
-                  .difference(DateTime.utc(
-                      group.start.year, group.start.month, group.start.day))
-                  .inDays),
+          sum +
+          (DateTime.utc(group.end.year, group.end.month, group.end.day)
+              .difference(
+                DateTime.utc(
+                  group.start.year,
+                  group.start.month,
+                  group.start.day,
+                ),
+              )
+              .inDays),
     );
-    final logNights =
-        logOnlyCampouts.fold<double>(0, (sum, camp) => sum + camp.nights);
+    final logNights = logOnlyCampouts.fold<double>(
+      0,
+      (sum, camp) => sum + camp.nights,
+    );
 
     final eventCounts = <String, int>{};
     for (final group in calendar) {
@@ -274,13 +354,16 @@ class TroopStatsService {
       scouts: scouts,
       campouts: campGroups.length + logOnlyCampouts.length,
       troopCampingNights: calendarNights + logNights,
-      serviceProjects: calendar
-              .where((group) => _isServiceEvent(group.first))
-              .length +
+      serviceProjects:
+          calendar.where((group) => _isServiceEvent(group.first)).length +
           activity.serviceEvents
-              .where((key) => !calendar.any((group) =>
-                  _isServiceEvent(group.first) &&
-                  key.startsWith('${AppDates.dayKey(group.start)}|')))
+              .where(
+                (key) => !calendar.any(
+                  (group) =>
+                      _isServiceEvent(group.first) &&
+                      key.startsWith('${AppDates.dayKey(group.start)}|'),
+                ),
+              )
               .length,
       activitiesLogged: activity.rows,
       eventsByType: Map.fromEntries(sortedEvents),
@@ -298,7 +381,8 @@ class TroopStatsService {
   }
 
   static Future<_ActivityTotals> _readActivity(
-      bool Function(DateTime) inRange) async {
+    bool Function(DateTime) inRange,
+  ) async {
     final totals = _ActivityTotals();
     // Reports imported before the hours column existed can sit beside a newer
     // copy of the same row, so each row counts once, keeping the fuller copy.
@@ -319,10 +403,14 @@ class TroopStatsService {
     for (final row in rows.values) {
       totals.rows++;
       final date = AppDates.parse(_text(row, 'date'))!;
-      final label = '${_text(row, 'activity')} ${_text(row, 'event')}'.toLowerCase();
-      final eventKey = '${AppDates.dayKey(date)}|${_normalize(_text(row, 'event'))}';
+      final label = '${_text(row, 'activity')} ${_text(row, 'event')}'
+          .toLowerCase();
+      final eventKey =
+          '${AppDates.dayKey(date)}|${_normalize(_text(row, 'event'))}';
       final scout = totals.perScout.putIfAbsent(
-          _nameKey(_text(row, 'scoutName')), () => _ScoutActivity());
+        _nameKey(_text(row, 'scoutName')),
+        () => _ScoutActivity(),
+      );
 
       if (label.contains('service')) {
         scout.hours += _measure(row, 'hours', r'(?:hours?|hrs?)\b');
@@ -331,8 +419,10 @@ class TroopStatsService {
       if (label.contains('camp') || label.contains('overnight')) {
         final nights = _measure(row, 'nights', r'nights?\b');
         scout.nights += nights;
-        final campout = totals.campouts
-            .putIfAbsent(eventKey, () => _LoggedCampout(date));
+        final campout = totals.campouts.putIfAbsent(
+          eventKey,
+          () => _LoggedCampout(date),
+        );
         if (nights > campout.nights) campout.nights = nights;
       }
       if (label.contains('hik') || label.contains('backpack')) {

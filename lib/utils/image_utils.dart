@@ -21,8 +21,7 @@ class ImageUtils {
       var targetWidth = width;
       var targetHeight = height;
       if (width > maxDimension_ || height > maxDimension_) {
-        final scale =
-            maxDimension_ / (width > height ? width : height);
+        final scale = maxDimension_ / (width > height ? width : height);
         targetWidth = (width * scale).round();
         targetHeight = (height * scale).round();
         final recorder = ui.PictureRecorder();
@@ -31,7 +30,11 @@ class ImageUtils {
           image,
           ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
           ui.Rect.fromLTWH(
-              0, 0, targetWidth.toDouble(), targetHeight.toDouble()),
+            0,
+            0,
+            targetWidth.toDouble(),
+            targetHeight.toDouble(),
+          ),
           ui.Paint()..filterQuality = ui.FilterQuality.medium,
         );
         final picture = recorder.endRecording();

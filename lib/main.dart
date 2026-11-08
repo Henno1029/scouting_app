@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'models/event_group.dart';
+import 'screens/ask_screen.dart';
+import 'screens/badge_planner_screen.dart';
 import 'screens/branding_screen.dart';
 import 'screens/calculation_screen.dart';
+import 'screens/event_detail_screen.dart';
 import 'screens/event_list_screen.dart';
 import 'screens/import_screen.dart';
+import 'screens/users_screen.dart';
 import 'scoutList_screen.dart';
 import 'scoutDetail_screen.dart';
 import 'services/branding_service.dart';
+import 'services/permission_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PermissionService.load();
   runApp(TroopApp());
 }
 
@@ -25,11 +33,17 @@ class TroopApp extends StatelessWidget {
         "/": (context) => NavigationHub(),
         "/scoutList": (context) => ScoutListScreen(),
         "/scoutDetail": (context) {
-          final scout = ModalRoute.of(context)!.settings.arguments
-              as Map<String, String>;
+          final scout =
+              ModalRoute.of(context)!.settings.arguments as Map<String, String>;
           return ScoutDetailScreen(scout: scout);
         },
         "/eventList": (context) => EventListScreen(),
+        "/eventDetail": (context) => EventDetailScreen(
+          group: ModalRoute.of(context)!.settings.arguments as EventGroup,
+        ),
+        "/badgePlanner": (context) => const BadgePlannerScreen(),
+        "/ask": (context) => const AskScreen(),
+        "/users": (context) => const UsersScreen(),
         "/calculation": (context) => const CalculationScreen(),
         "/branding": (context) => BrandingScreen(),
         "/import": (context) => ImportScreen(),
@@ -71,8 +85,7 @@ class _NavigationHubState extends State<NavigationHub> {
     if (website == null || website.isEmpty) return;
     final uri = Uri.tryParse(website);
     if (uri == null) return;
-    final launched =
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open the troop website.')),
@@ -89,11 +102,7 @@ class _NavigationHubState extends State<NavigationHub> {
           color: AppTheme.scoutingTan,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Icon(
-          Icons.face_3,
-          size: 56,
-          color: AppTheme.scoutingBlue,
-        ),
+        child: const Icon(Icons.face_3, size: 56, color: AppTheme.scoutingBlue),
       );
     }
     return Container(
@@ -110,11 +119,8 @@ class _NavigationHubState extends State<NavigationHub> {
         fit: BoxFit.contain,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, __, ___) => const Icon(
-          Icons.face_3,
-          size: 56,
-          color: AppTheme.scoutingBlue,
-        ),
+        errorBuilder: (_, __, ___) =>
+            const Icon(Icons.face_3, size: 56, color: AppTheme.scoutingBlue),
       ),
     );
   }
@@ -125,71 +131,118 @@ class _NavigationHubState extends State<NavigationHub> {
       appBar: AppBar(
         title: const Text("Navigation Hub"),
         actions: [
+          ValueListenableBuilder<PermissionState>(
+            valueListenable: PermissionService.state,
+            builder: (context, state, _) => IconButton(
+              icon: Icon(
+                state.setupMode
+                    ? Icons.manage_accounts_outlined
+                    : Icons.account_circle,
+              ),
+              tooltip: state.setupMode
+                  ? 'Users & Permissions'
+                  : '${state.current?.name ?? 'User'} (${state.level.label})',
+              onPressed: () => Navigator.pushNamed(context, '/users'),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.badge_outlined),
             tooltip: 'Branding & Patrols',
             onPressed: () {
-              Navigator.pushNamed(context, '/branding')
-                  .then((_) => _loadBranding());
+              Navigator.pushNamed(
+                context,
+                '/branding',
+              ).then((_) => _loadBranding());
             },
           ),
         ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _logo(),
-            const SizedBox(height: 12),
-            Text(
-              _troopName == null || _troopName!.isEmpty
-                  ? "Troop Manager"
-                  : _troopName!,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppTheme.scoutingDarkBlue,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const Text(
-              "Scouting America",
-              style: TextStyle(
-                color: AppTheme.scoutingWarmGray,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _navButton(context, "Scout Page", () => Navigator.pushNamed(context, "/scoutList")),
-            _navButton(context, "Event Page", () => Navigator.pushNamed(context, "/eventList")),
-            _navButton(context, "Calculation Page", () => Navigator.pushNamed(context, "/calculation")),
-            _navButton(context, "Upload Data", () => Navigator.pushNamed(context, "/import")),
-            if (_troopWebsite != null && _troopWebsite!.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _openTroopWebsite,
-                icon: const Icon(Icons.public),
-                label: const Text('Troop Website'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(200, 50),
-                  foregroundColor: AppTheme.scoutingBlue,
-                  side: const BorderSide(color: AppTheme.scoutingBlue),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _logo(),
+              const SizedBox(height: 12),
+              Text(
+                _troopName == null || _troopName!.isEmpty
+                    ? "Troop Manager"
+                    : _troopName!,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppTheme.scoutingDarkBlue,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
+              const Text(
+                "Scouting America",
+                style: TextStyle(
+                  color: AppTheme.scoutingWarmGray,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _navButton(
+                context,
+                "Scout Page",
+                () => Navigator.pushNamed(context, "/scoutList"),
+              ),
+              _navButton(
+                context,
+                "Event Page",
+                () => Navigator.pushNamed(context, "/eventList"),
+              ),
+              _navButton(
+                context,
+                "Calculation Page",
+                () => Navigator.pushNamed(context, "/calculation"),
+              ),
+              _navButton(
+                context,
+                "Upload Data",
+                () => Navigator.pushNamed(context, "/import"),
+              ),
+              _navButton(
+                context,
+                "Merit Badge Planner",
+                () => Navigator.pushNamed(context, "/badgePlanner"),
+              ),
+              _navButton(
+                context,
+                "Ask Your Troop",
+                () => Navigator.pushNamed(context, "/ask"),
+              ),
+              if (_troopWebsite != null && _troopWebsite!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _openTroopWebsite,
+                  icon: const Icon(Icons.public),
+                  label: const Text('Troop Website'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(200, 50),
+                    foregroundColor: AppTheme.scoutingBlue,
+                    side: const BorderSide(color: AppTheme.scoutingBlue),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _navButton(BuildContext context, String label, VoidCallback onPressed) {
+  Widget _navButton(
+    BuildContext context,
+    String label,
+    VoidCallback onPressed,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: ElevatedButton(
         onPressed: onPressed,
         child: Text(label),
-        style: ElevatedButton.styleFrom(
-          minimumSize: Size(200, 50),
-        ),
+        style: ElevatedButton.styleFrom(minimumSize: Size(200, 50)),
       ),
     );
   }

@@ -6,9 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'services/advancement_service.dart';
 import 'services/branding_service.dart';
+import 'services/permission_service.dart';
+import 'services/scout_service.dart';
 import 'services/troop_report_pdf_service.dart';
 import 'services/troop_stats_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/app_dates.dart';
 
 class ScoutListScreen extends StatefulWidget {
   @override
@@ -34,16 +37,10 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
   }
 
   Future<void> _loadScouts() async {
-    final prefs = await SharedPreferences.getInstance();
     final emblems = await BrandingService.loadAllPatrolEmblems();
-    final json = prefs.getString('scouts');
-    var scouts = <Map<String, String>>[];
-    if (json != null) {
-      scouts = (jsonDecode(json) as List)
-          .map((e) => Map<String, String>.from(e as Map))
-          .toList();
-    }
+    final scouts = await ScoutService.load();
     final patrols = await BrandingService.uniquePatrols();
+    if (!mounted) return;
     setState(() {
       _emblems = emblems;
       _scouts = scouts;
@@ -105,9 +102,16 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
           for (final scout in _scouts)
             RosterEntry(
               name: scout['name'] ?? '',
-              rank: index.rank(scout['name'] ?? '') ?? scout['rank'] ?? '',
+              rank:
+                  index.rank(
+                    scout['name'] ?? '',
+                    memberId: scout['memberId'] ?? '',
+                  ) ??
+                  scout['rank'] ??
+                  '',
               patrol: scout['patrol'] ?? '',
               memberId: scout['memberId'] ?? '',
+              birthday: AppDates.parse(scout['birthday'] ?? ''),
             ),
         ],
         troopName: await BrandingService.loadTroopName() ?? 'Troop Manager',
@@ -184,70 +188,75 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(labelText: 'Scout\'s Name'),
-            ),
-            DropdownButtonFormField<String>(
-              value: _selectedRank,
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedRank = newValue!;
-                });
-              },
-              items: <String>[
-                'Scout',
-                'Tenderfoot',
-                'Second Class',
-                'First Class',
-                'Star',
-                'Life',
-                'Eagle'
-              ].map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-            DropdownButtonFormField<String>(
-              value: _addingNewPatrol ? _newPatrolValue : _selectedPatrol,
-              onChanged: (String? newValue) {
-                setState(() {
-                  _addingNewPatrol = newValue == _newPatrolValue;
-                  _selectedPatrol = _addingNewPatrol ? '' : (newValue ?? '');
-                });
-              },
-              decoration: const InputDecoration(labelText: 'Patrol Name'),
-              items: <DropdownMenuItem<String>>[
-                const DropdownMenuItem<String>(
-                  value: '',
-                  child: Text('No patrol'),
-                ),
-                ..._patrols.map((patrol) => DropdownMenuItem<String>(
+            if (PermissionService.state.value.canEdit) ...[
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(labelText: 'Scout\'s Name'),
+              ),
+              DropdownButtonFormField<String>(
+                value: _selectedRank,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedRank = newValue!;
+                  });
+                },
+                items:
+                    <String>[
+                      'Scout',
+                      'Tenderfoot',
+                      'Second Class',
+                      'First Class',
+                      'Star',
+                      'Life',
+                      'Eagle',
+                    ].map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+              ),
+              DropdownButtonFormField<String>(
+                value: _addingNewPatrol ? _newPatrolValue : _selectedPatrol,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _addingNewPatrol = newValue == _newPatrolValue;
+                    _selectedPatrol = _addingNewPatrol ? '' : (newValue ?? '');
+                  });
+                },
+                decoration: const InputDecoration(labelText: 'Patrol Name'),
+                items: <DropdownMenuItem<String>>[
+                  const DropdownMenuItem<String>(
+                    value: '',
+                    child: Text('No patrol'),
+                  ),
+                  ..._patrols.map(
+                    (patrol) => DropdownMenuItem<String>(
                       value: patrol,
                       child: Text(patrol),
-                    )),
-                const DropdownMenuItem<String>(
-                  value: _newPatrolValue,
-                  child: Text('New patrol…'),
+                    ),
+                  ),
+                  const DropdownMenuItem<String>(
+                    value: _newPatrolValue,
+                    child: Text('New patrol…'),
+                  ),
+                ],
+              ),
+              if (_addingNewPatrol) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _patrolController,
+                  decoration: const InputDecoration(
+                    labelText: 'New Patrol Name',
+                  ),
                 ),
               ],
-            ),
-            if (_addingNewPatrol) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _patrolController,
-                decoration: const InputDecoration(labelText: 'New Patrol Name'),
+              ElevatedButton(
+                onPressed: _addScout,
+                child: Text('Add Scout'),
+                style: ElevatedButton.styleFrom(minimumSize: Size(200, 50)),
               ),
             ],
-            ElevatedButton(
-              onPressed: _addScout,
-              child: Text('Add Scout'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(200, 50),
-              ),
-            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -274,9 +283,9 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                 Text(
                   'Scouts',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.scoutingDarkBlue,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.scoutingDarkBlue,
+                  ),
                 ),
                 Text(
                   '${_scouts.length} ${_scouts.length == 1 ? 'scout' : 'scouts'}',
@@ -312,7 +321,8 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                               'Add your first scout above to get started.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: AppTheme.scoutingWarmGray),
+                                color: AppTheme.scoutingWarmGray,
+                              ),
                             ),
                           ],
                         ),
@@ -321,26 +331,40 @@ class _ScoutListScreenState extends State<ScoutListScreen> {
                   : ListView.builder(
                       itemCount: _scouts.length,
                       itemBuilder: (context, index) {
-                  // ScoutService.updateScout drops blank fields from storage,
-                  // so patrol and rank may be missing.
-                  final rank = _scouts[index]['rank'] ?? '';
-                  final patrol = _scouts[index]['patrol'] ?? '';
-                  return ListTile(
-                    leading: _patrolEmblem(patrol),
-                    title: Text(_scouts[index]['name']!),
-                    subtitle: Text(patrol.isEmpty ? rank : '$rank • $patrol'),
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      '/scoutDetail',
-                      arguments: _scouts[index],
-                    ).then((_) => _loadScouts()),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete),
-                      onPressed: () => _deleteScout(index),
+                        // ScoutService.updateScout drops blank fields from storage,
+                        // so patrol and rank may be missing.
+                        final rank = _scouts[index]['rank'] ?? '';
+                        final patrol = _scouts[index]['patrol'] ?? '';
+                        final birthday = AppDates.parse(
+                          _scouts[index]['birthday'] ?? '',
+                        );
+                        final age = birthday == null
+                            ? null
+                            : AppDates.ageOn(birthday, DateTime.now());
+                        return ListTile(
+                          leading: _patrolEmblem(patrol),
+                          title: Text(_scouts[index]['name'] ?? ''),
+                          subtitle: Text(
+                            [
+                              if (rank.isNotEmpty) rank,
+                              if (patrol.isNotEmpty) patrol,
+                              if (age != null) 'Age $age',
+                            ].join(' • '),
+                          ),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            '/scoutDetail',
+                            arguments: _scouts[index],
+                          ).then((_) => _loadScouts()),
+                          trailing: !PermissionService.state.value.canEdit
+                              ? null
+                              : IconButton(
+                                  icon: Icon(Icons.delete),
+                                  onPressed: () => _deleteScout(index),
+                                ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),

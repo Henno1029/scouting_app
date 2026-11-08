@@ -41,6 +41,7 @@ dependencies:
   printing: ^5.15.0
   http: ^1.2.2
   url_launcher: ^6.3.2
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +69,8 @@ flutter:
 
   # Blank official forms that the Event Plans tab fills out.
   assets:
+    - assets/fonts/Roboto-Regular.ttf
+    - assets/fonts/Roboto-Bold.ttf
     - assets/forms/meeting_plan.jpg
     - assets/forms/scout_planning_worksheet_1.jpg
     - assets/forms/scout_planning_worksheet_2.jpg

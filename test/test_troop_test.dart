@@ -158,6 +158,19 @@ void main() {
     expect(swim, contains('First Class 6a'));
   });
 
+  test('Jon Reed and Jon Reedy keep separate records', () async {
+    await importAll();
+    expect((await progressOf('Jon Reed')).rank, 'Tenderfoot');
+    expect((await progressOf('Jon Reedy')).rank, 'Scout');
+  });
+
+  test('birthdays come in from the roster', () async {
+    await importAll();
+    final ethan = (await ScoutService.load())
+        .firstWhere((s) => s['name'] == 'Ethan Walker');
+    expect(ethan['birthday'], '2015-03-14');
+  });
+
   test('only the deliberately odd record is unreadable', () async {
     await importAll();
     final scouts = await ScoutService.load();

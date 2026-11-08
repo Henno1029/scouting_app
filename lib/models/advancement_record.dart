@@ -23,22 +23,24 @@ class AdvancementRecord {
     this.awarded = false,
   });
 
-  String get fullName => [firstName, middleName, lastName]
-      .where((part) => part.trim().isNotEmpty)
-      .join(' ');
+  String get fullName => [
+    firstName,
+    middleName,
+    lastName,
+  ].where((part) => part.trim().isNotEmpty).join(' ');
 
   Map<String, dynamic> toJson() => {
-        'memberId': memberId,
-        'firstName': firstName,
-        'middleName': middleName,
-        'lastName': lastName,
-        'advancementType': advancementType,
-        'advancement': advancement,
-        'version': version,
-        'dateCompleted': dateCompleted?.toIso8601String(),
-        'approved': approved,
-        'awarded': awarded,
-      };
+    'memberId': memberId,
+    'firstName': firstName,
+    'middleName': middleName,
+    'lastName': lastName,
+    'advancementType': advancementType,
+    'advancement': advancement,
+    'version': version,
+    'dateCompleted': dateCompleted?.toIso8601String(),
+    'approved': approved,
+    'awarded': awarded,
+  };
 
   factory AdvancementRecord.fromJson(Map<String, dynamic> json) {
     return AdvancementRecord(
@@ -49,7 +51,9 @@ class AdvancementRecord {
       advancementType: json['advancementType']?.toString() ?? '',
       advancement: json['advancement']?.toString() ?? '',
       version: json['version']?.toString() ?? '',
-      dateCompleted: parseAdvancementDate(json['dateCompleted']?.toString() ?? ''),
+      dateCompleted: parseAdvancementDate(
+        json['dateCompleted']?.toString() ?? '',
+      ),
       approved: json['approved'] == true,
       awarded: json['awarded'] == true,
     );
@@ -74,6 +78,9 @@ class AdvancementRecord {
 
   static bool parseFlag(String value) {
     final trimmed = value.trim().toLowerCase();
-    return trimmed == '1' || trimmed == 'true' || trimmed == 'yes' || trimmed == 'y';
+    return trimmed == '1' ||
+        trimmed == 'true' ||
+        trimmed == 'yes' ||
+        trimmed == 'y';
   }
 }

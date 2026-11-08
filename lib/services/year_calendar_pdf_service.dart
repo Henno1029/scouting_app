@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../models/event.dart';
 import '../utils/app_dates.dart';
+import 'pdf_fonts.dart';
 
 class YearCalendarPdfService {
   static final PdfColor _blue = PdfColor.fromInt(0xFF003F87);
@@ -34,18 +35,37 @@ class YearCalendarPdfService {
   static final PdfColor _typeFallback = PdfColor.fromInt(0xFFEAEAE6);
 
   static PdfColor _typeColor(String type) {
-    final normalized =
-        type.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final normalized = type.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     return _typeColors[normalized] ?? _typeFallback;
   }
 
   static const List<String> _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   static const List<String> _shortMonths = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   static const List<String> _letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -55,16 +75,17 @@ class YearCalendarPdfService {
     Uint8List? logoBytes,
     List<Event> events = const [],
   }) async {
-    final yearEvents = events
-        .where((e) => e.date != null && e.date!.year == year)
-        .toList()
-      ..sort((a, b) => a.date!.compareTo(b.date!));
+    final yearEvents =
+        events.where((e) => e.date != null && e.date!.year == year).toList()
+          ..sort((a, b) => a.date!.compareTo(b.date!));
     final byDay = <String, List<Event>>{};
     for (final event in yearEvents) {
-      byDay.putIfAbsent(AppDates.dayKey(event.date!), () => <Event>[]).add(event);
+      byDay
+          .putIfAbsent(AppDates.dayKey(event.date!), () => <Event>[])
+          .add(event);
     }
 
-    final doc = pw.Document();
+    final doc = pw.Document(theme: await PdfFonts.theme());
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.letter,
@@ -127,8 +148,7 @@ class YearCalendarPdfService {
     ];
 
     for (var month = 1; month <= 12; month++) {
-      final monthEvents =
-          events.where((e) => e.date!.month == month).toList();
+      final monthEvents = events.where((e) => e.date!.month == month).toList();
       if (monthEvents.isEmpty) continue;
       widgets.add(
         pw.Text(
@@ -179,8 +199,11 @@ class YearCalendarPdfService {
     );
   }
 
-  static pw.Widget _cell(String text,
-      {bool bold = false, PdfColor? background}) {
+  static pw.Widget _cell(
+    String text, {
+    bool bold = false,
+    PdfColor? background,
+  }) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
       alignment: pw.Alignment.centerLeft,
@@ -270,8 +293,7 @@ class YearCalendarPdfService {
                 height: 8,
                 decoration: pw.BoxDecoration(
                   color: _typeColor(entry.key),
-                  borderRadius:
-                      pw.BorderRadius.all(pw.Radius.circular(2)),
+                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(2)),
                 ),
               ),
               pw.SizedBox(width: 3),
@@ -306,7 +328,10 @@ class YearCalendarPdfService {
   }
 
   static pw.Widget _monthColumn(
-      int year, int month, Map<String, List<Event>> byDay) {
+    int year,
+    int month,
+    Map<String, List<Event>> byDay,
+  ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
@@ -331,7 +356,10 @@ class YearCalendarPdfService {
   }
 
   static pw.Widget _monthTable(
-      int year, int month, Map<String, List<Event>> byDay) {
+    int year,
+    int month,
+    Map<String, List<Event>> byDay,
+  ) {
     final first = DateTime(year, month, 1);
     final startCol = first.weekday % 7;
     final daysInMonth = DateTime(year, month + 1, 0).day;
@@ -376,18 +404,20 @@ class YearCalendarPdfService {
             final date = DateTime(year, month, day);
             final dayEvents = byDay[AppDates.dayKey(date)];
             final isEvent = dayEvents != null && dayEvents.isNotEmpty;
-            final cellColor =
-                isEvent ? _typeColor(dayEvents.first.type) : null;
+            final cellColor = isEvent ? _typeColor(dayEvents.first.type) : null;
             return pw.Container(
               height: 14,
               alignment: pw.Alignment.center,
-              decoration:
-                  cellColor != null ? pw.BoxDecoration(color: cellColor) : null,
+              decoration: cellColor != null
+                  ? pw.BoxDecoration(color: cellColor)
+                  : null,
               child: pw.Text(
                 '$day',
                 style: pw.TextStyle(
                   fontSize: 6,
-                  fontWeight: isEvent ? pw.FontWeight.bold : pw.FontWeight.normal,
+                  fontWeight: isEvent
+                      ? pw.FontWeight.bold
+                      : pw.FontWeight.normal,
                   color: isEvent ? _darkBlue : PdfColors.black,
                 ),
               ),

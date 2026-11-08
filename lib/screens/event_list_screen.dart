@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
 import '../models/event.dart';
+import '../models/event_group.dart';
 import '../services/branding_service.dart';
 import '../services/event_service.dart';
+import '../services/permission_service.dart';
 import '../services/year_calendar_pdf_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_dates.dart';
@@ -18,10 +20,28 @@ class EventListScreen extends StatefulWidget {
 
 class _EventListScreenState extends State<EventListScreen> {
   static const List<String> _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
-  static const List<String> _weekdayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  static const List<String> _weekdayLetters = [
+    'S',
+    'M',
+    'T',
+    'W',
+    'T',
+    'F',
+    'S',
+  ];
 
   List<Event> _events = [];
   DateTime _view = DateTime(DateTime.now().year, DateTime.now().month, 1);
@@ -35,8 +55,30 @@ class _EventListScreenState extends State<EventListScreen> {
     _load();
   }
 
+  bool get _canEdit => PermissionService.state.value.canEdit;
+
+  /// Opens the whole event, including every day of a multi-day campout.
+  Future<void> _openDetail(Event event) async {
+    final group = EventGroup.combine(_events).firstWhere(
+      (group) => group.days.any((day) => day.id == event.id),
+      orElse: () => EventGroup([event]),
+    );
+    await Navigator.pushNamed(context, '/eventDetail', arguments: group);
+    if (mounted) _load();
+  }
+
   Future<void> _load() async {
-    final events = await EventService.load();
+    List<Event> events;
+    try {
+      events = await EventService.load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load events: $error')),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _events = events;
@@ -53,20 +95,23 @@ class _EventListScreenState extends State<EventListScreen> {
     final dated = _events.where((event) => event.date != null).toList();
     if (dated.isEmpty) return;
     final now = DateTime.now();
-    final hasCurrent = dated.any((event) =>
-        event.date!.year == now.year && event.date!.month == now.month);
+    final hasCurrent = dated.any(
+      (event) => event.date!.year == now.year && event.date!.month == now.month,
+    );
     if (hasCurrent) return;
     dated.sort((a, b) => a.date!.compareTo(b.date!));
     final monthStart = DateTime(now.year, now.month, 1);
-    final upcoming =
-        dated.where((event) => !event.date!.isBefore(monthStart)).toList();
-    final target = upcoming.isNotEmpty ? upcoming.first.date! : dated.last.date!;
+    final upcoming = dated
+        .where((event) => !event.date!.isBefore(monthStart))
+        .toList();
+    final target = upcoming.isNotEmpty
+        ? upcoming.first.date!
+        : dated.last.date!;
     _view = DateTime(target.year, target.month, 1);
   }
 
   List<Event> get _displayEvents => _events
-      .where((event) =>
-          !_hiddenTypes.contains(_typeLabel(event.type)))
+      .where((event) => !_hiddenTypes.contains(_typeLabel(event.type)))
       .toList();
 
   String _typeLabel(String type) => type.isEmpty ? 'Unlabeled' : type;
@@ -95,9 +140,9 @@ class _EventListScreenState extends State<EventListScreen> {
                   SwitchListTile(
                     dense: true,
                     title: Text(type),
-                    subtitle: Text(_hiddenTypes.contains(type)
-                        ? 'Hidden'
-                        : 'Visible'),
+                    subtitle: Text(
+                      _hiddenTypes.contains(type) ? 'Hidden' : 'Visible',
+                    ),
                     value: !draft.contains(type),
                     onChanged: (visible) => setDialogState(() {
                       if (visible) {
@@ -117,9 +162,11 @@ class _EventListScreenState extends State<EventListScreen> {
             ),
             FilledButton(
               onPressed: () {
-                setState(() => _hiddenTypes
-                  ..clear()
-                  ..addAll(draft));
+                setState(
+                  () => _hiddenTypes
+                    ..clear()
+                    ..addAll(draft),
+                );
                 Navigator.pop(context);
               },
               child: const Text('Apply'),
@@ -130,11 +177,25 @@ class _EventListScreenState extends State<EventListScreen> {
     );
   }
 
+  Map<String, List<Event>> _byDay = const {};
+  List<Event>? _byDayEvents;
+  String _byDayHidden = '';
+
+  /// Events on [day], from a lookup rebuilt only when the events or the
+  /// hidden types change, since the year view asks for all 365 days.
   List<Event> _eventsOn(DateTime day) {
-    final key = AppDates.dayKey(day);
-    return _displayEvents
-        .where((e) => e.date != null && AppDates.dayKey(e.date!) == key)
-        .toList();
+    final hidden = (_hiddenTypes.toList()..sort()).join('|');
+    if (!identical(_byDayEvents, _events) || hidden != _byDayHidden) {
+      final byDay = <String, List<Event>>{};
+      for (final event in _displayEvents) {
+        if (event.date == null) continue;
+        byDay.putIfAbsent(AppDates.dayKey(event.date!), () => []).add(event);
+      }
+      _byDay = byDay;
+      _byDayEvents = _events;
+      _byDayHidden = hidden;
+    }
+    return _byDay[AppDates.dayKey(day)] ?? const [];
   }
 
   void _previous() {
@@ -167,13 +228,18 @@ class _EventListScreenState extends State<EventListScreen> {
   ({int startCol, int daysInMonth, int weeks}) _gridInfo(DateTime first) {
     final startCol = first.weekday % 7;
     final daysInMonth = DateTime(first.year, first.month + 1, 0).day;
-    return (startCol: startCol, daysInMonth: daysInMonth, weeks: ((startCol + daysInMonth) / 7).ceil());
+    return (
+      startCol: startCol,
+      daysInMonth: daysInMonth,
+      weeks: ((startCol + daysInMonth) / 7).ceil(),
+    );
   }
 
   Future<void> _exportPdf() async {
     try {
       final year = _view.year;
-      final troopName = await BrandingService.loadTroopName() ?? 'Troop Manager';
+      final troopName =
+          await BrandingService.loadTroopName() ?? 'Troop Manager';
       final logo = await BrandingService.loadTroopLogo();
       final bytes = await YearCalendarPdfService.buildYearCalendar(
         year: year,
@@ -187,9 +253,8 @@ class _EventListScreenState extends State<EventListScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF export failed: $error')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('PDF export failed: $error')));
     }
   }
 
@@ -204,11 +269,12 @@ class _EventListScreenState extends State<EventListScreen> {
             tooltip: 'Export year PDF',
             onPressed: _exportPdf,
           ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Add event',
-            onPressed: _addEventDialog,
-          ),
+          if (_canEdit)
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              tooltip: 'Add event',
+              onPressed: _addEventDialog,
+            ),
         ],
       ),
       body: Padding(
@@ -280,7 +346,7 @@ class _EventListScreenState extends State<EventListScreen> {
                         : '${_hiddenTypes.length} type(s) hidden',
                     onPressed: _showTypeFilterDialog,
                   ),
-                  if (_yearView) ...[
+                  if (_yearView && _canEdit) ...[
                     const SizedBox(width: 4),
                     IconButton(
                       icon: const Icon(Icons.delete_sweep_outlined),
@@ -332,8 +398,7 @@ class _EventListScreenState extends State<EventListScreen> {
                 }
               }),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _hiddenTypes.contains(entry.key)
                       ? AppTheme.scoutingWarmGray
@@ -408,7 +473,10 @@ class _EventListScreenState extends State<EventListScreen> {
                 return const Expanded(child: SizedBox.shrink());
               }
               return Expanded(
-                child: _dayCell(DateTime(_view.year, _view.month, dayNum), today),
+                child: _dayCell(
+                  DateTime(_view.year, _view.month, dayNum),
+                  today,
+                ),
               );
             }),
           ),
@@ -488,13 +556,16 @@ class _EventListScreenState extends State<EventListScreen> {
   }
 
   Widget _buildMonthEventsList() {
-    final monthEvents = _displayEvents
-        .where((e) =>
-            e.date != null &&
-            e.date!.year == _view.year &&
-            e.date!.month == _view.month)
-        .toList()
-      ..sort((a, b) => a.date!.compareTo(b.date!));
+    final monthEvents =
+        _displayEvents
+            .where(
+              (e) =>
+                  e.date != null &&
+                  e.date!.year == _view.year &&
+                  e.date!.month == _view.month,
+            )
+            .toList()
+          ..sort((a, b) => a.date!.compareTo(b.date!));
 
     if (monthEvents.isEmpty) {
       final dated = _events.where((event) => event.date != null).toList();
@@ -514,12 +585,13 @@ class _EventListScreenState extends State<EventListScreen> {
                   '${_events.length} event(s) loaded from your calendars.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                      color: AppTheme.scoutingWarmGray, fontSize: 12),
+                    color: AppTheme.scoutingWarmGray,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () =>
-                      setState(() => _jumpToNearestEventMonth()),
+                  onPressed: () => setState(() => _jumpToNearestEventMonth()),
                   icon: const Icon(Icons.event_available, size: 18),
                   label: const Text('Jump to nearest events'),
                 ),
@@ -546,12 +618,14 @@ class _EventListScreenState extends State<EventListScreen> {
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_sweep_outlined),
-                color: AppTheme.scoutingRed,
-                tooltip: 'Delete all events for ${_monthNames[_view.month - 1]}',
-                onPressed: () => _confirmDeleteAllForMonth(monthEvents),
-              ),
+              if (_canEdit)
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  color: AppTheme.scoutingRed,
+                  tooltip:
+                      'Delete all events for ${_monthNames[_view.month - 1]}',
+                  onPressed: () => _confirmDeleteAllForMonth(monthEvents),
+                ),
             ],
           ),
         ),
@@ -569,26 +643,28 @@ class _EventListScreenState extends State<EventListScreen> {
                 ),
                 title: Text(event.title),
                 subtitle: Text(_eventSubtitle(event)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Edit event',
-                      onPressed: () => _editEvent(event),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      color: AppTheme.scoutingRed,
-                      tooltip: 'Delete event',
-                      onPressed: () async {
-                        await EventService.delete(event.id);
-                        _load();
-                      },
-                    ),
-                  ],
-                ),
-                onTap: () => _showDaySheet(event.date ?? _view),
+                trailing: !_canEdit
+                    ? null
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: 'Edit event',
+                            onPressed: () => _editEvent(event),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            color: AppTheme.scoutingRed,
+                            tooltip: 'Delete event',
+                            onPressed: () async {
+                              await EventService.delete(event.id);
+                              _load();
+                            },
+                          ),
+                        ],
+                      ),
+                onTap: () => _openDetail(event),
               );
             }).toList(),
           ),
@@ -598,17 +674,29 @@ class _EventListScreenState extends State<EventListScreen> {
   }
 
   Widget _buildYearView() {
-    return Column(
-      children: [
-        for (var row = 0; row < 3; row++)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var col = 0; col < 4; col++)
-                Expanded(child: _miniMonth(_view.year, row * 4 + col + 1)),
-            ],
-          ),
-      ],
+    // Fewer months across on narrow screens, so day numbers have room.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final perRow = constraints.maxWidth < 560
+            ? 2
+            : constraints.maxWidth < 820
+            ? 3
+            : 4;
+        return Column(
+          children: [
+            for (var row = 0; row < 12 ~/ perRow; row++)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var col = 0; col < perRow; col++)
+                    Expanded(
+                      child: _miniMonth(_view.year, row * perRow + col + 1),
+                    ),
+                ],
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -663,13 +751,16 @@ class _EventListScreenState extends State<EventListScreen> {
                       final date = DateTime(year, month, dayNum);
                       final events = _eventsOn(date);
                       final hasEvents = events.isNotEmpty;
-                      final isToday = AppDates.dayKey(date) == AppDates.dayKey(today);
+                      final isToday =
+                          AppDates.dayKey(date) == AppDates.dayKey(today);
                       return Expanded(
                         child: Container(
                           height: 18,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: isToday ? AppTheme.scoutingPaleBlue : Colors.white,
+                            color: isToday
+                                ? AppTheme.scoutingPaleBlue
+                                : Colors.white,
                           ),
                           child: hasEvents
                               ? Column(
@@ -688,7 +779,8 @@ class _EventListScreenState extends State<EventListScreen> {
                                       height: 4,
                                       decoration: BoxDecoration(
                                         color: AppTheme.eventTypeColor(
-                                            events.first.type),
+                                          events.first.type,
+                                        ),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -803,16 +895,17 @@ class _EventListScreenState extends State<EventListScreen> {
                       ),
                     ),
                   ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Event'),
-                    onPressed: () async {
-                      await _addEventDialog();
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                      _load();
-                    },
-                  ),
+                  if (_canEdit)
+                    TextButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Event'),
+                      onPressed: () async {
+                        await _addEventDialog(on: day);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                        _load();
+                      },
+                    ),
                 ],
               ),
               if (events.isEmpty)
@@ -840,39 +933,45 @@ class _EventListScreenState extends State<EventListScreen> {
                             color: AppTheme.scoutingDarkBlue,
                           ),
                         ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _openDetail(event);
+                        },
                         title: Text(event.title),
                         subtitle: Text(
                           event.description.isEmpty
                               ? _eventSubtitle(event)
                               : '${_eventSubtitle(event)}\n${event.description}',
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              tooltip: 'Edit event',
-                              onPressed: () async {
-                                final saved = await _editEvent(event);
-                                // The sheet lists a snapshot of the day's
-                                // events, so close it rather than show stale
-                                // details.
-                                if (saved && context.mounted) {
-                                  Navigator.pop(context);
-                                }
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              color: AppTheme.scoutingRed,
-                              onPressed: () async {
-                                await EventService.delete(event.id);
-                                Navigator.pop(context);
-                                _load();
-                              },
-                            ),
-                          ],
-                        ),
+                        trailing: !_canEdit
+                            ? null
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined),
+                                    tooltip: 'Edit event',
+                                    onPressed: () async {
+                                      final saved = await _editEvent(event);
+                                      // The sheet lists a snapshot of the day's
+                                      // events, so close it rather than show stale
+                                      // details.
+                                      if (saved && context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline),
+                                    color: AppTheme.scoutingRed,
+                                    onPressed: () async {
+                                      await EventService.delete(event.id);
+                                      Navigator.pop(context);
+                                      _load();
+                                    },
+                                  ),
+                                ],
+                              ),
                       );
                     },
                   ),
@@ -895,12 +994,12 @@ class _EventListScreenState extends State<EventListScreen> {
     return true;
   }
 
-  Future<void> _addEventDialog() async {
+  Future<void> _addEventDialog({DateTime? on}) async {
     final titleController = TextEditingController();
     final locationController = TextEditingController();
     final notesController = TextEditingController();
     String type = 'Other';
-    DateTime date = _view;
+    DateTime date = on ?? _view;
 
     await showDialog<void>(
       context: context,
@@ -923,13 +1022,31 @@ class _EventListScreenState extends State<EventListScreen> {
                       initialValue: type,
                       decoration: const InputDecoration(labelText: 'Type'),
                       items: const [
-                        DropdownMenuItem(value: 'Meeting', child: Text('Meeting')),
-                        DropdownMenuItem(value: 'Campout', child: Text('Campout')),
+                        DropdownMenuItem(
+                          value: 'Meeting',
+                          child: Text('Meeting'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Campout',
+                          child: Text('Campout'),
+                        ),
                         DropdownMenuItem(value: 'Hike', child: Text('Hike')),
-                        DropdownMenuItem(value: 'Service', child: Text('Service')),
-                        DropdownMenuItem(value: 'Fundraiser', child: Text('Fundraiser')),
-                        DropdownMenuItem(value: 'Court of Honor', child: Text('Court of Honor')),
-                        DropdownMenuItem(value: 'Elections', child: Text('Elections')),
+                        DropdownMenuItem(
+                          value: 'Service',
+                          child: Text('Service'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Fundraiser',
+                          child: Text('Fundraiser'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Court of Honor',
+                          child: Text('Court of Honor'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Elections',
+                          child: Text('Elections'),
+                        ),
                         DropdownMenuItem(value: 'Other', child: Text('Other')),
                       ],
                       onChanged: (value) =>

@@ -20,14 +20,14 @@ class Event {
   bool get isMeeting => type.trim().toLowerCase() == 'meeting';
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'date': date?.toIso8601String(),
-        'location': location,
-        'type': type,
-        'description': description,
-        'activities': activities,
-      };
+    'id': id,
+    'title': title,
+    'date': date?.toIso8601String(),
+    'location': location,
+    'type': type,
+    'description': description,
+    'activities': activities,
+  };
 
   factory Event.fromJson(Map<String, dynamic> json) {
     return Event(
@@ -37,7 +37,9 @@ class Event {
       location: json['location']?.toString() ?? '',
       type: json['type']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
-      activities: (json['activities'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      activities:
+          (json['activities'] as List?)?.map((e) => e.toString()).toList() ??
+          const [],
     );
   }
 }

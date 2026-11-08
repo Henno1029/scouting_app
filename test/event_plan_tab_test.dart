@@ -397,7 +397,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Bring rope'), findsNothing);
 
-    await tester.tap(find.widgetWithText(ListTile, 'Troop Night'));
+    await tester.tap(find.text('Troop Night').first);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Bring rope'), findsOneWidget);

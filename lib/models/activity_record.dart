@@ -16,13 +16,13 @@ class ActivityRecord {
   });
 
   Map<String, dynamic> toJson() => {
-        'scoutName': scoutName,
-        'date': date?.toIso8601String(),
-        'activity': activity,
-        'event': event,
-        'location': location,
-        'notes': notes,
-      };
+    'scoutName': scoutName,
+    'date': date?.toIso8601String(),
+    'activity': activity,
+    'event': event,
+    'location': location,
+    'notes': notes,
+  };
 
   factory ActivityRecord.fromJson(Map<String, dynamic> json) {
     return ActivityRecord(

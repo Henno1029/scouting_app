@@ -7,6 +7,7 @@ import '../models/event_group.dart';
 import '../models/event_plan.dart';
 import 'calculation_pdf_service.dart';
 import 'event_plan_service.dart';
+import 'pdf_fonts.dart';
 
 enum OfficialForm { meetingPlan, scoutWorksheet }
 
@@ -31,38 +32,56 @@ class OfficialFormService {
       : OfficialForm.scoutWorksheet;
 
   static String formName(OfficialForm form) => switch (form) {
-        OfficialForm.meetingPlan => 'Meeting Plan',
-        OfficialForm.scoutWorksheet => 'Scout Planning Worksheet',
-      };
+    OfficialForm.meetingPlan => 'Meeting Plan',
+    OfficialForm.scoutWorksheet => 'Scout Planning Worksheet',
+  };
 
-  static List<FormDetailField> detailFields(OfficialForm form) => switch (form) {
+  static List<FormDetailField> detailFields(OfficialForm form) =>
+      switch (form) {
         OfficialForm.meetingPlan => const [
-            FormDetailField('startTime', 'Meeting start time',
-                hint: 'For example 7:00 PM. Fills in the Time column.'),
-          ],
+          FormDetailField(
+            'startTime',
+            'Meeting start time',
+            hint: 'For example 7:00 PM. Fills in the Time column.',
+          ),
+        ],
         OfficialForm.scoutWorksheet => const [
-            FormDetailField('goal', 'Goal',
-                lines: 2, hint: 'What you intend to accomplish.'),
-            FormDetailField('why', 'Why?',
-                lines: 2, hint: 'Why this activity is important.'),
-            FormDetailField('teamLeader', 'Team leader'),
-            FormDetailField('leaderPhone', 'Team leader telephone'),
-            FormDetailField('leaderEmail', 'Team leader email'),
-            FormDetailField('teamMembers', 'Team members',
-                lines: 3, hint: 'One per line: name, telephone, email'),
-            FormDetailField('permits', 'Permissions/permits required'),
-            FormDetailField('transport', 'Transportation/parking needs'),
-            FormDetailField('weather', 'Weather contingencies'),
-            FormDetailField('hazards', 'Liability and possible site hazards'),
-            FormDetailField('resources',
-                'Equipment, materials, volunteers, shelter, food/water and sources'),
-            FormDetailField('expenses', 'Estimated expenses and the sources'),
-            FormDetailField('safety', 'Safety issues'),
-            FormDetailField('health', 'Health, sanitation and cleanup'),
-            FormDetailField('assessStart', 'Assessment: start'),
-            FormDetailField('assessStop', 'Assessment: stop'),
-            FormDetailField('assessContinue', 'Assessment: continue'),
-          ],
+          FormDetailField(
+            'goal',
+            'Goal',
+            lines: 2,
+            hint: 'What you intend to accomplish.',
+          ),
+          FormDetailField(
+            'why',
+            'Why?',
+            lines: 2,
+            hint: 'Why this activity is important.',
+          ),
+          FormDetailField('teamLeader', 'Team leader'),
+          FormDetailField('leaderPhone', 'Team leader telephone'),
+          FormDetailField('leaderEmail', 'Team leader email'),
+          FormDetailField(
+            'teamMembers',
+            'Team members',
+            lines: 3,
+            hint: 'One per line: name, telephone, email',
+          ),
+          FormDetailField('permits', 'Permissions/permits required'),
+          FormDetailField('transport', 'Transportation/parking needs'),
+          FormDetailField('weather', 'Weather contingencies'),
+          FormDetailField('hazards', 'Liability and possible site hazards'),
+          FormDetailField(
+            'resources',
+            'Equipment, materials, volunteers, shelter, food/water and sources',
+          ),
+          FormDetailField('expenses', 'Estimated expenses and the sources'),
+          FormDetailField('safety', 'Safety issues'),
+          FormDetailField('health', 'Health, sanitation and cleanup'),
+          FormDetailField('assessStart', 'Assessment: start'),
+          FormDetailField('assessStop', 'Assessment: stop'),
+          FormDetailField('assessContinue', 'Assessment: continue'),
+        ],
       };
 
   static Future<Uint8List> build({
@@ -141,8 +160,13 @@ class OfficialFormService {
   /// Minutes between the form's opening and closing, which it prints as 90.
   static int meetingMinutes(List<PlanItem> items) =>
       _skillsMinutes(items) +
-      ['opening', 'group', 'breakout', 'game', 'closing']
-          .fold(0, (sum, section) => sum + _sectionMinutes(items, section));
+      [
+        'opening',
+        'group',
+        'breakout',
+        'game',
+        'closing',
+      ].fold(0, (sum, section) => sum + _sectionMinutes(items, section));
 
   /// Minutes after midnight, from text like "7:00 PM", "7pm" or "19:00".
   static int? parseClock(String text) {
@@ -265,7 +289,10 @@ class OfficialFormService {
   };
 
   static Future<Uint8List> _buildMeeting(
-      EventGroup group, EventPlan plan, String troopName) async {
+    EventGroup group,
+    EventPlan plan,
+    String troopName,
+  ) async {
     final sheet = _Sheet(await _image('meeting_plan.jpg'), 612, 792);
     final extras = <String>[];
 
@@ -294,16 +321,30 @@ class OfficialFormService {
           ? _skillsMinutes(plan.items)
           : _sectionMinutes(plan.items, section);
       if (row.minutesLine != null && minutes > 0) {
-        sheet.onLine(30, 44, row.minutesLine!, '$minutes', '$label minutes',
-            max: 11);
+        sheet.onLine(
+          30,
+          44,
+          row.minutesLine!,
+          '$minutes',
+          '$label minutes',
+          max: 11,
+        );
       }
       final who = items.map((i) => i.who).where((w) => w.isNotEmpty).join(', ');
-      final details =
-          items.map((i) => i.notes).where((n) => n.isNotEmpty).join('; ');
+      final details = items
+          .map((i) => i.notes)
+          .where((n) => n.isNotEmpty)
+          .join('; ');
       sheet.inBox(row.runBy, who, '$label run by', max: 10);
       if (row.bulletLines != null) {
-        sheet.onRows(177, 442, row.bulletLines!, _steps(details), label,
-            max: 11);
+        sheet.onRows(
+          177,
+          442,
+          row.bulletLines!,
+          _steps(details),
+          label,
+          max: 11,
+        );
       } else if (row.description != null) {
         sheet.inBox(row.description!, details, label, max: 11);
       } else if (details.isNotEmpty) {
@@ -336,15 +377,24 @@ class OfficialFormService {
       '${date.month}/${date.day}/${date.year}';
 
   static Future<Uint8List> _buildWorksheet(
-      EventGroup group, EventPlan plan) async {
-    final front = _Sheet(await _image('scout_planning_worksheet_1.jpg'), 612, 792);
-    final back = _Sheet(await _image('scout_planning_worksheet_2.jpg'), 612, 792);
+    EventGroup group,
+    EventPlan plan,
+  ) async {
+    final front = _Sheet(
+      await _image('scout_planning_worksheet_1.jpg'),
+      612,
+      792,
+    );
+    final back = _Sheet(
+      await _image('scout_planning_worksheet_2.jpg'),
+      612,
+      792,
+    );
     final details = plan.details;
     final extras = <String>[];
     String field(String key) => details[key] ?? '';
 
-    front.inBox([31, 126, 582, 198], field('goal'), 'Goal',
-        max: 12, top: true);
+    front.inBox([31, 126, 582, 198], field('goal'), 'Goal', max: 12, top: true);
     front.inBox([31, 246, 582, 318], field('why'), 'Why', max: 12, top: true);
     front.onLine(87, 585, 357.3, field('teamLeader'), 'Team leader');
     front.onLine(83, 261, 378.7, field('leaderPhone'), 'Team leader telephone');
@@ -364,8 +414,13 @@ class OfficialFormService {
         front.onLine(299, 395, line, parts[1], 'Team member telephone');
       }
       if (parts.length > 2) {
-        front.onLine(429, 585, line, parts.sublist(2).join(', '),
-            'Team member email');
+        front.onLine(
+          429,
+          585,
+          line,
+          parts.sublist(2).join(', '),
+          'Team member email',
+        );
       }
     }
 
@@ -375,7 +430,13 @@ class OfficialFormService {
     front.onLine(29, 585, 612, field('permits'), 'Permissions/permits');
     front.onLine(29, 585, 645.3, field('transport'), 'Transportation/parking');
     front.onLine(29, 585, 678, field('weather'), 'Weather contingencies');
-    front.onLine(29, 585, 711.3, field('hazards'), 'Liability and site hazards');
+    front.onLine(
+      29,
+      585,
+      711.3,
+      field('hazards'),
+      'Liability and site hazards',
+    );
 
     back.onLine(29, 585, 86, field('resources'), 'Resources');
     back.onLine(29, 585, 119.3, field('expenses'), 'Estimated expenses');
@@ -393,9 +454,12 @@ class OfficialFormService {
         continue;
       }
       final top = phaseTops[i];
-      back.inBox([31, top + 1, 165, top + rowHeight * 3 - 1], phase.title,
-          'Planning phase',
-          max: 11);
+      back.inBox(
+        [31, top + 1, 165, top + rowHeight * 3 - 1],
+        phase.title,
+        'Planning phase',
+        max: 11,
+      );
       final steps = _steps(phase.notes);
       for (var s = 0; s < steps.length; s++) {
         if (s >= 3) {
@@ -403,16 +467,25 @@ class OfficialFormService {
           continue;
         }
         final rowTop = top + s * rowHeight;
-        back.inBox([170, rowTop, 398, rowTop + rowHeight], steps[s],
-            '${phase.title} step',
-            max: 10.5);
+        back.inBox(
+          [170, rowTop, 398, rowTop + rowHeight],
+          steps[s],
+          '${phase.title} step',
+          max: 10.5,
+        );
       }
-      back.inBox([402, top, 467, top + rowHeight], phase.target,
-          '${phase.title} target date',
-          max: 10.5);
-      back.inBox([471, top, 584, top + rowHeight], phase.who,
-          '${phase.title} person responsible',
-          max: 10.5);
+      back.inBox(
+        [402, top, 467, top + rowHeight],
+        phase.target,
+        '${phase.title} target date',
+        max: 10.5,
+      );
+      back.inBox(
+        [471, top, 584, top + rowHeight],
+        phase.who,
+        '${phase.title} person responsible',
+        max: 10.5,
+      );
     }
 
     void assessment(double left, List<double> lines, String key, String label) {
@@ -447,46 +520,46 @@ class OfficialFormService {
       .toList();
 
   static List<String> _planExtras(EventPlan plan) => [
-        if (plan.notes.isNotEmpty) 'Notes: ${plan.notes}',
-        if (plan.requirements.isNotEmpty)
-          'Requirements to cover: ${plan.requirements.join(', ')}',
-      ];
+    if (plan.notes.isNotEmpty) 'Notes: ${plan.notes}',
+    if (plan.requirements.isNotEmpty)
+      'Requirements to cover: ${plan.requirements.join(', ')}',
+  ];
 
   static Future<Uint8List> _finish({
     required OfficialForm form,
     required Event event,
     required List<_Sheet> sheets,
     required List<String> extras,
-  }) {
-    final doc = pw.Document();
+  }) async {
+    final doc = pw.Document(theme: await PdfFonts.theme());
     for (final sheet in sheets) {
       doc.addPage(sheet.toPage());
     }
-    final attached = [
-      ...extras,
-      for (final sheet in sheets) ...sheet.overflow,
-    ];
+    final attached = [...extras, for (final sheet in sheets) ...sheet.overflow];
     if (attached.isNotEmpty) {
-      doc.addPage(pw.MultiPage(
-        pageFormat: PdfPageFormat.letter,
-        margin: const pw.EdgeInsets.all(48),
-        build: (_) => [
-          pw.Text(
-            CalculationPdfService.printable(
-                'Attachment to ${formName(form)}: ${event.title}'),
-            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
-          ),
-          pw.SizedBox(height: 10),
-          for (final text in attached)
-            pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 6),
-              child: pw.Text(
-                CalculationPdfService.printable(text),
-                style: const pw.TextStyle(fontSize: 10),
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.letter,
+          margin: const pw.EdgeInsets.all(48),
+          build: (_) => [
+            pw.Text(
+              CalculationPdfService.printable(
+                'Attachment to ${formName(form)}: ${event.title}',
               ),
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
             ),
-        ],
-      ));
+            pw.SizedBox(height: 10),
+            for (final text in attached)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 6),
+                child: pw.Text(
+                  CalculationPdfService.printable(text),
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ),
+          ],
+        ),
+      );
     }
     return doc.save();
   }
@@ -562,43 +635,70 @@ class _Sheet {
   static bool _breaksWord(String text, int chars) =>
       text.split(RegExp(r'\s+')).any((word) => word.length > chars);
 
-  void _place(double left, double top, double boxWidth, double boxHeight,
-      String text, double size, pw.Alignment alignment) {
-    _placed.add(pw.Positioned(
-      left: left,
-      top: top,
-      child: pw.Container(
-        width: boxWidth,
-        height: boxHeight,
-        alignment: alignment,
-        child: pw.Text(
-          text,
-          style: pw.TextStyle(fontSize: size, lineSpacing: 0.5),
+  void _place(
+    double left,
+    double top,
+    double boxWidth,
+    double boxHeight,
+    String text,
+    double size,
+    pw.Alignment alignment,
+  ) {
+    _placed.add(
+      pw.Positioned(
+        left: left,
+        top: top,
+        child: pw.Container(
+          width: boxWidth,
+          height: boxHeight,
+          alignment: alignment,
+          child: pw.Text(
+            text,
+            style: pw.TextStyle(fontSize: size, lineSpacing: 0.5),
+          ),
         ),
       ),
-    ));
+    );
   }
 
   /// Writes one row of text resting on a printed line at [line].
   void _rest(double left, double right, double line, String text, double size) {
     final rowHeight = size * _lineHeight;
-    _place(left, line - rowHeight - 0.5, right - left, rowHeight, text, size,
-        pw.Alignment.bottomLeft);
+    _place(
+      left,
+      line - rowHeight - 0.5,
+      right - left,
+      rowHeight,
+      text,
+      size,
+      pw.Alignment.bottomLeft,
+    );
   }
 
   /// Writes an answer on a printed line, shrinking it to fit the line's width.
   /// If it still won't fit, the line says so and the attachment gets it in full.
-  void onLine(double left, double right, double line, String text, String label,
-      {double max = 11}) {
+  void onLine(
+    double left,
+    double right,
+    double line,
+    String text,
+    String label, {
+    double max = 11,
+  }) {
     onRows(left, right, [line], [text], label, max: max);
   }
 
   /// Writes entries on a set of printed lines, one entry per line, wrapping a
   /// long entry onto the next line if there's room, at the largest size that
   /// fits.
-  void onRows(double left, double right, List<double> lines, List<String> entries,
-      String label,
-      {double max = 11}) {
+  void onRows(
+    double left,
+    double right,
+    List<double> lines,
+    List<String> entries,
+    String label, {
+    double max = 11,
+  }) {
     final shown = entries
         .map((entry) => CalculationPdfService.printable(entry.trim()))
         .where((entry) => entry.isNotEmpty)
@@ -609,8 +709,8 @@ class _Sheet {
     while (true) {
       final chars = _charsAt(right - left, size);
       final rows = [for (final entry in shown) ..._wrap(entry, chars)];
-      final wholeWords = size <= _minFont ||
-          !shown.any((entry) => _breaksWord(entry, chars));
+      final wholeWords =
+          size <= _minFont || !shown.any((entry) => _breaksWord(entry, chars));
       if (rows.length <= lines.length && wholeWords) {
         for (var i = 0; i < rows.length; i++) {
           _rest(left, right, lines[i], rows[i], size);
@@ -626,8 +726,13 @@ class _Sheet {
           final kept = last && row.length + marker.length > chars
               ? row.substring(0, (chars - marker.length).clamp(0, row.length))
               : row;
-          _rest(left, right, lines[i], last ? '${kept.trimRight()}$marker' : kept,
-              size);
+          _rest(
+            left,
+            right,
+            lines[i],
+            last ? '${kept.trimRight()}$marker' : kept,
+            size,
+          );
         }
         return;
       }
@@ -637,8 +742,13 @@ class _Sheet {
 
   /// Writes an answer inside a box given as [left, top, right, bottom], centered
   /// up and down unless [top] is set, at the largest size that fits.
-  void inBox(List<double> box, String text, String label,
-      {double max = 11, bool top = false}) {
+  void inBox(
+    List<double> box,
+    String text,
+    String label, {
+    double max = 11,
+    bool top = false,
+  }) {
     final shown = CalculationPdfService.printable(text.trim());
     if (shown.isEmpty) return;
     final boxWidth = box[2] - box[0];
@@ -651,16 +761,30 @@ class _Sheet {
       final capacity = (boxHeight / (size * _lineHeight)).floor();
       final wholeWords = size <= _minFont || !_breaksWord(shown, chars);
       if (rows.length <= capacity && wholeWords) {
-        _place(box[0], box[1], boxWidth, boxHeight, rows.join('\n'), size,
-            top ? pw.Alignment.topLeft : pw.Alignment.centerLeft);
+        _place(
+          box[0],
+          box[1],
+          boxWidth,
+          boxHeight,
+          rows.join('\n'),
+          size,
+          top ? pw.Alignment.topLeft : pw.Alignment.centerLeft,
+        );
         return;
       }
       if (size <= _minFont) {
         overflow.add('$label: $shown');
         const marker = '... (see attachment)';
         if (capacity < 1) {
-          _place(box[0], box[1], boxWidth, boxHeight, 'See attached', _minFont,
-              pw.Alignment.centerLeft);
+          _place(
+            box[0],
+            box[1],
+            boxWidth,
+            boxHeight,
+            'See attached',
+            _minFont,
+            pw.Alignment.centerLeft,
+          );
           return;
         }
         final kept = rows.take(capacity).toList();
@@ -670,8 +794,15 @@ class _Sheet {
               .trimRight();
         }
         kept.last = '${kept.last}$marker';
-        _place(box[0], box[1], boxWidth, boxHeight, kept.join('\n'), size,
-            pw.Alignment.topLeft);
+        _place(
+          box[0],
+          box[1],
+          boxWidth,
+          boxHeight,
+          kept.join('\n'),
+          size,
+          pw.Alignment.topLeft,
+        );
         return;
       }
       size -= 0.5;

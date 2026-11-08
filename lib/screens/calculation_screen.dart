@@ -13,6 +13,7 @@ import '../services/requirement_calculator.dart';
 import '../services/scout_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_dates.dart';
+import '../widgets/load_error.dart';
 import '../widgets/event_plan_tab.dart';
 
 /// Two tabs sharing one event picker. Event Calculations shows which rank
@@ -35,6 +36,7 @@ class _CalculationScreenState extends State<CalculationScreen>
       if (!_tabs.indexIsChanging) setState(() {});
     });
   bool _loading = true;
+  Object? _error;
   List<EventGroup> _events = [];
   List<ScoutProgress> _scouts = [];
   bool _includePast = false;
@@ -69,6 +71,18 @@ class _CalculationScreenState extends State<CalculationScreen>
   }
 
   Future<void> _load() async {
+    try {
+      await _loadData();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadData() async {
     final events = await _readEvents();
     final index = await AdvancementIndex.load();
     final scouts = <ScoutProgress>[];
@@ -76,13 +90,20 @@ class _CalculationScreenState extends State<CalculationScreen>
       final name = scout['name'] ?? '';
       if (name.isEmpty) continue;
       scouts.add(
-          RequirementCalculator.fromIndex(index, name, scout['rank'] ?? ''));
+        RequirementCalculator.fromIndex(
+          index,
+          name,
+          scout['rank'] ?? '',
+          memberId: scout['memberId'] ?? '',
+        ),
+      );
     }
     scouts.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     if (!mounted) return;
     setState(() {
       _events = events;
       _scouts = scouts;
+      _error = null;
       _loading = false;
     });
   }
@@ -145,9 +166,8 @@ class _CalculationScreenState extends State<CalculationScreen>
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Printing failed: $error')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Printing failed: $error')));
     }
   }
 
@@ -189,6 +209,14 @@ class _CalculationScreenState extends State<CalculationScreen>
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? LoadError(
+              error: _error!,
+              onRetry: () {
+                setState(() => _loading = true);
+                _load();
+              },
+            )
           : TabBarView(
               controller: _tabs,
               children: [
@@ -242,9 +270,11 @@ class _CalculationScreenState extends State<CalculationScreen>
             _heading('Event'),
             const SizedBox(height: 8),
             if (events.isEmpty)
-              _note(_events.isEmpty
-                  ? 'No events yet. Add one on the Event Page or import a calendar.'
-                  : 'No upcoming events. Turn on past events below.')
+              _note(
+                _events.isEmpty
+                    ? 'No events yet. Add one on the Event Page or import a calendar.'
+                    : 'No upcoming events. Turn on past events below.',
+              )
             else
               DropdownButton<String>(
                 value: _selectedEvent?.id,
@@ -287,9 +317,11 @@ class _CalculationScreenState extends State<CalculationScreen>
                 Expanded(child: _heading('Scouts attending')),
                 if (_scouts.isNotEmpty) ...[
                   TextButton(
-                    onPressed: () => setState(() => _attending
-                      ..clear()
-                      ..addAll(_scouts.map((scout) => scout.name))),
+                    onPressed: () => setState(
+                      () => _attending
+                        ..clear()
+                        ..addAll(_scouts.map((scout) => scout.name)),
+                    ),
                     child: const Text('All'),
                   ),
                   TextButton(
@@ -300,7 +332,9 @@ class _CalculationScreenState extends State<CalculationScreen>
               ],
             ),
             if (_scouts.isEmpty)
-              _note('No scouts yet. Add them on the Scout Page or import a roster.')
+              _note(
+                'No scouts yet. Add them on the Scout Page or import a roster.',
+              )
             else
               for (final scout in _scouts)
                 CheckboxListTile(
@@ -326,7 +360,9 @@ class _CalculationScreenState extends State<CalculationScreen>
         Padding(
           padding: const EdgeInsets.all(16),
           child: Center(
-            child: _note('Choose an event and at least one scout to see results.'),
+            child: _note(
+              'Choose an event and at least one scout to see results.',
+            ),
           ),
         ),
       ];
@@ -367,9 +403,7 @@ class _CalculationScreenState extends State<CalculationScreen>
         key: ValueKey('${event.id}|${scout.name}'),
         initiallyExpanded: expanded,
         title: Text(scout.name),
-        subtitle: Text(
-          count == 1 ? '1 requirement' : '$count requirements',
-        ),
+        subtitle: Text(count == 1 ? '1 requirement' : '$count requirements'),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (requirements.isEmpty)

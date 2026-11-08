@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:csv/csv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'advancement_service.dart';
 import 'branding_service.dart';
+import 'scout_service.dart';
 
 class CsvTable {
   final List<String> headers;
@@ -199,6 +201,7 @@ class CsvImportService {
         ImportField('lastName', 'Last Name', required: true),
         ImportField('rank', 'Rank'),
         ImportField('patrol', 'Patrol Name'),
+        ImportField('birthday', 'Date of Birth'),
       ],
       preset: {
         'memberId': 'BSA Member ID',
@@ -207,12 +210,16 @@ class CsvImportService {
         'lastName': 'Last Name',
         'rank': 'Rank',
         'patrol': 'Patrol Name',
+        'birthday': 'Date of Birth',
       },
     ),
   ];
 
   static ImportTarget targetById(String id) {
-    return targets.firstWhere((target) => target.id == id, orElse: () => targets.first);
+    return targets.firstWhere(
+      (target) => target.id == id,
+      orElse: () => targets.first,
+    );
   }
 
   static CsvTable parse(String content) {
@@ -258,13 +265,43 @@ class CsvImportService {
   }
 
   static const List<String> _headerTerms = [
-    'memberid', 'firstname', 'lastname', 'middlename', 'name',
-    'date', 'activity', 'location', 'notes', 'scout', 'patrol',
-    'rank', 'advancement', 'type', 'camp', 'event', 'birth',
-    'phone', 'email', 'role', 'position', 'unit', 'service',
-    'attendance', 'attend', 'hours', 'approved', 'awarded',
-    'version', 'week', 'meeting', 'holiday', 'roundtable',
-    'committee', 'plc', 'council', 'check',
+    'memberid',
+    'firstname',
+    'lastname',
+    'middlename',
+    'name',
+    'date',
+    'activity',
+    'location',
+    'notes',
+    'scout',
+    'patrol',
+    'rank',
+    'advancement',
+    'type',
+    'camp',
+    'event',
+    'birth',
+    'phone',
+    'email',
+    'role',
+    'position',
+    'unit',
+    'service',
+    'attendance',
+    'attend',
+    'hours',
+    'approved',
+    'awarded',
+    'version',
+    'week',
+    'meeting',
+    'holiday',
+    'roundtable',
+    'committee',
+    'plc',
+    'council',
+    'check',
   ];
 
   static int _detectHeaderRow(List<List<dynamic>> decoded) {
@@ -296,7 +333,10 @@ class CsvImportService {
     return best;
   }
 
-  static Map<String, String> autoMap(ImportTarget target, List<String> headers) {
+  static Map<String, String> autoMap(
+    ImportTarget target,
+    List<String> headers,
+  ) {
     final lookup = <String, String>{};
     for (final header in headers) {
       lookup.putIfAbsent(_normalize(header), () => header);
@@ -318,17 +358,15 @@ class CsvImportService {
       if (chosen == null) {
         final norm = _normalize(field.label);
         if (norm.isNotEmpty) {
-          final matches = headers
-              .where((h) {
+          final matches =
+              headers.where((h) {
                 final hn = _normalize(h);
                 return hn.contains(norm) || norm.contains(hn);
-              })
-              .toList()
-            ..sort((a, b) {
-              final lenDiff =
-                  _normalize(b).length.compareTo(_normalize(a).length);
-              return lenDiff != 0 ? lenDiff : a.compareTo(b);
-            });
+              }).toList()..sort((a, b) {
+                final lenDiff = _normalize(b).length
+                    .compareTo(_normalize(a).length);
+                return lenDiff != 0 ? lenDiff : a.compareTo(b);
+              });
           if (matches.isNotEmpty) chosen = matches.first;
         }
       }
@@ -363,13 +401,17 @@ class CsvImportService {
     'miles': ['Miles', 'Hiking Miles', 'Miles Hiked'],
     'memberId': ['BSA Member ID', 'Member ID', 'BSA ID'],
     'patrol': ['Patrol Name', 'Patrol', 'Den Name'],
+    'birthday': ['Date of Birth', 'Birth Date', 'Birthday', 'DOB'],
     'advancement': ['Advancement', 'Badge', 'Rank', 'Award'],
     'dateCompleted': ['Date Completed', 'Date', 'Earned Date'],
     'approved': ['Approved', 'Leader Approved By', 'Counselor Approved'],
     'awarded': ['Awarded', 'Awarded By', 'Awarded Date'],
   };
 
-  static List<Map<String, String>> apply(CsvTable table, Map<String, String> mapping) {
+  static List<Map<String, String>> apply(
+    CsvTable table,
+    Map<String, String> mapping,
+  ) {
     final index = <String, int>{};
     for (var i = 0; i < table.headers.length; i++) {
       index[table.headers[i]] = i;
@@ -379,13 +421,18 @@ class CsvImportService {
       final record = <String, String>{};
       mapping.forEach((key, header) {
         final position = index[header];
-        record[key] = position != null && position < row.length ? row[position] : '';
+        record[key] = position != null && position < row.length
+            ? row[position]
+            : '';
       });
       return record;
     }).toList();
   }
 
-  static List<String> missingRequired(ImportTarget target, Map<String, String> mapping) {
+  static List<String> missingRequired(
+    ImportTarget target,
+    Map<String, String> mapping,
+  ) {
     return target.fields
         .where((field) => field.required && (mapping[field.key] ?? '').isEmpty)
         .map((field) => field.label)
@@ -393,7 +440,10 @@ class CsvImportService {
   }
 
   static Future<({int added, int total, int scoutsAdded})> save(
-      ImportTarget target, String fileName, List<Map<String, String>> records) async {
+    ImportTarget target,
+    String fileName,
+    List<Map<String, String>> records,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
 
     var added = 0;
@@ -406,13 +456,16 @@ class CsvImportService {
       total = result.total;
       scoutsAdded = result.scoutsAdded;
     } else {
-      final replace = (target.storageKey == 'import_program_grid' ||
+      final replace =
+          (target.storageKey == 'import_program_grid' ||
               target.storageKey == 'import_calendar') &&
           (await loadMeta(target.storageKey))?['fileName'] == fileName;
-      final existingRaw =
-          replace ? const <Map<String, dynamic>>[] : await load(target.storageKey);
-      final existing =
-          existingRaw.map((m) => Map<String, String>.from(m)).toList();
+      final existingRaw = replace
+          ? const <Map<String, dynamic>>[]
+          : await load(target.storageKey);
+      final existing = existingRaw
+          .map((m) => Map<String, String>.from(m))
+          .toList();
       final seen = <String>{for (final r in existing) _signature(r)};
       for (final record in records) {
         if (seen.add(_signature(record))) {
@@ -466,13 +519,12 @@ class CsvImportService {
       if ((record['advancementType'] ?? '').trim().toLowerCase() != 'rank') {
         continue;
       }
-      final advancement = _normalize((record['advancement'] ?? '').trim());
-      var bestIndex = -1;
-      for (var i = 0; i < _rankOrder.length; i++) {
-        if (advancement.contains(_normalize(_rankOrder[i])) && i > bestIndex) {
-          bestIndex = i;
-        }
-      }
+      // The whole title must name the rank: IAR imports store requirement
+      // text as type "Rank" too, and "wildlife" must not count as Life.
+      final earned = AdvancementService.rankFromTitle(
+        record['advancement'] ?? '',
+      );
+      final bestIndex = earned == null ? -1 : _rankOrder.indexOf(earned);
       if (bestIndex < 0) continue;
       final rank = _rankOrder[bestIndex];
       final key = _normalize(name);
@@ -486,26 +538,31 @@ class CsvImportService {
     final scouts = raw == null
         ? <Map<String, String>>[]
         : (jsonDecode(raw) as List)
-            .map((e) => Map<String, String>.from(e as Map))
-            .toList();
+              .map((e) => ScoutService.toScout(e as Map))
+              .toList();
 
-    final seen = {for (final scout in scouts) _normalize(scout['name'] ?? '')};
     var created = 0;
     var changed = false;
     for (final record in records) {
       final name = _displayName(record);
       if (name.isEmpty) continue;
       final key = _normalize(name);
-      if (seen.add(key)) {
+      final memberId = (record['memberId'] ?? '').trim();
+      final existing = _findScout(scouts, memberId, record);
+      if (existing == null) {
         scouts.add({
           'name': name,
           'rank': rankByName[key] ?? '',
           'patrol': '',
+          if (memberId.isNotEmpty) 'memberId': memberId,
         });
         created++;
-      } else if ((rankByName[key] ?? '').isNotEmpty) {
-        final existing =
-            scouts.firstWhere((s) => _normalize(s['name'] ?? '') == key);
+      } else {
+        if (memberId.isNotEmpty && (existing['memberId'] ?? '').isEmpty) {
+          existing['memberId'] = memberId;
+          changed = true;
+        }
+        if ((rankByName[key] ?? '').isEmpty) continue;
         if ((existing['rank'] ?? '').isEmpty) {
           existing['rank'] = rankByName[key]!;
           changed = true;
@@ -519,19 +576,15 @@ class CsvImportService {
   }
 
   static Future<({int added, int total, int scoutsAdded})> _mergeRoster(
-      List<Map<String, String>> records) async {
+    List<Map<String, String>> records,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('scouts');
     final scouts = raw == null || raw.isEmpty
         ? <Map<String, String>>[]
         : (jsonDecode(raw) as List)
-            .map((e) => Map<String, String>.from(e as Map))
-            .toList();
-    final byKey = <String, Map<String, String>>{};
-    for (final scout in scouts) {
-      byKey[_normalize(scout['name'] ?? '')] = scout;
-    }
-
+              .map((e) => ScoutService.toScout(e as Map))
+              .toList();
     var added = 0;
     var changed = false;
     final patrols = <String>{};
@@ -541,20 +594,24 @@ class CsvImportService {
       final patrol = (record['patrol'] ?? '').trim();
       final rank = (record['rank'] ?? '').trim();
       final memberId = (record['memberId'] ?? '').trim();
+      final birthday = (record['birthday'] ?? '').trim();
       if (patrol.isNotEmpty) patrols.add(patrol);
 
-      final key = _normalize(name);
-      final scout = byKey[key];
+      final scout = _findScout(scouts, memberId, record);
       if (scout == null) {
         scouts.add({
           'name': name,
           'rank': rank,
           'patrol': patrol,
           if (memberId.isNotEmpty) 'memberId': memberId,
+          if (birthday.isNotEmpty) 'birthday': birthday,
         });
-        byKey[key] = scouts.last;
         added++;
       } else {
+        if (birthday.isNotEmpty && (scout['birthday'] ?? '').isEmpty) {
+          scout['birthday'] = birthday;
+          changed = true;
+        }
         if (rank.isNotEmpty && (scout['rank'] ?? '').isEmpty) {
           scout['rank'] = rank;
           changed = true;
@@ -578,10 +635,48 @@ class CsvImportService {
     return (added: added, total: scouts.length, scoutsAdded: added);
   }
 
+  /// The roster scout a record belongs to: by member ID when the scout has
+  /// one, otherwise by whole name, with or without a middle name.
+  static Map<String, String>? _findScout(
+    List<Map<String, String>> scouts,
+    String memberId,
+    Map<String, String> record,
+  ) {
+    if (memberId.isNotEmpty) {
+      for (final scout in scouts) {
+        if ((scout['memberId'] ?? '') == memberId) return scout;
+      }
+    }
+    final first = (record['firstName'] ?? '').trim();
+    final middle = (record['middleName'] ?? '').trim();
+    final last = (record['lastName'] ?? '').trim();
+    final keys = {
+      _normalize('$first $middle $last'),
+      _normalize('$first $last'),
+    };
+    for (final scout in scouts) {
+      final otherId = scout['memberId'] ?? '';
+      if (memberId.isNotEmpty && otherId.isNotEmpty && otherId != memberId) {
+        continue;
+      }
+      final name = scout['name'] ?? '';
+      final parts = name.trim().split(RegExp(r'\s+'));
+      final scoutKeys = {
+        _normalize(name),
+        if (parts.length > 2) _normalize('${parts.first} ${parts.last}'),
+      };
+      if (scoutKeys.any(keys.contains)) return scout;
+    }
+    return null;
+  }
+
   static String _signature(Map<String, String> record) {
     final keys = record.keys.toList()..sort();
     return keys
-        .map((k) => '${k.toLowerCase()}=${record[k].toString().trim().toLowerCase()}')
+        .map(
+          (k) =>
+              '${k.toLowerCase()}=${record[k].toString().trim().toLowerCase()}',
+        )
         .join('|');
   }
 

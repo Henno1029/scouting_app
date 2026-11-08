@@ -43,23 +43,24 @@ class IarParser {
   ];
 
   static final RegExp _troopPattern = RegExp(r'Troop', caseSensitive: false);
-  static final RegExp _datePattern =
-      RegExp(r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$');
+  static final RegExp _datePattern = RegExp(r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$');
 
   static List<List<String>> toRows(List<List<String>> rows) {
     final drafts = parse(rows);
     return [
       _headers,
-      ...drafts.map((d) => [
-            d.memberId,
-            d.firstName,
-            d.middleName,
-            d.lastName,
-            d.type,
-            d.advancement,
-            d.version,
-            d.date,
-          ]),
+      ...drafts.map(
+        (d) => [
+          d.memberId,
+          d.firstName,
+          d.middleName,
+          d.lastName,
+          d.type,
+          d.advancement,
+          d.version,
+          d.date,
+        ],
+      ),
     ];
   }
 
@@ -74,21 +75,23 @@ class IarParser {
       final first = raw.isNotEmpty
           ? raw[0].trim()
           : raw.isEmpty
-              ? ''
-              : '';
+          ? ''
+          : '';
       final sectionRank = rankLookup[_normalize(first)];
       if (sectionRank != null) {
         section = sectionRank;
         final date = raw.length > 2 ? raw[2].trim() : '';
         if (_validDate(date)) {
-          drafts.add(IarDraft(
-            memberId: memberId,
-            firstName: firstName,
-            lastName: lastName,
-            type: 'Rank',
-            advancement: sectionRank,
-            date: date,
-          ));
+          drafts.add(
+            IarDraft(
+              memberId: memberId,
+              firstName: firstName,
+              lastName: lastName,
+              type: 'Rank',
+              advancement: sectionRank,
+              date: date,
+            ),
+          );
         }
         continue;
       }
@@ -101,15 +104,17 @@ class IarParser {
       if (!_validDate(date)) continue;
 
       final isBadge = first.isEmpty;
-      drafts.add(IarDraft(
-        memberId: memberId,
-        firstName: firstName,
-        lastName: lastName,
-        type: isBadge ? 'Merit Badge' : 'Rank',
-        advancement: isBadge ? _cleanBadge(advancement) : advancement,
-        version: isBadge ? '' : first,
-        date: date,
-      ));
+      drafts.add(
+        IarDraft(
+          memberId: memberId,
+          firstName: firstName,
+          lastName: lastName,
+          type: isBadge ? 'Merit Badge' : 'Rank',
+          advancement: isBadge ? _cleanBadge(advancement) : advancement,
+          version: isBadge ? '' : first,
+          date: date,
+        ),
+      );
     }
 
     return drafts;
@@ -144,8 +149,7 @@ class IarParser {
         final only = rows[i].where((c) => c.trim().isNotEmpty).toList();
         if (only.length == 1 &&
             !_normalize(only[0]).startsWith('generated') &&
-            _normalize(only[0]) !=
-                'scoutsbsaindividualadvancementrecord') {
+            _normalize(only[0]) != 'scoutsbsaindividualadvancementrecord') {
           name = only[0].trim();
           break;
         }

@@ -11,7 +11,10 @@ class EventService {
   static const _key = 'events';
   static const _deletedImportsKey = 'deleted_imported_event_ids';
 
-  static const List<String> _importKeys = ['import_calendar', 'import_program_grid'];
+  static const List<String> _importKeys = [
+    'import_calendar',
+    'import_program_grid',
+  ];
 
   static Future<List<Event>> _loadManual() async {
     final prefs = await SharedPreferences.getInstance();
@@ -75,14 +78,16 @@ class EventService {
         final location = row['location']?.toString() ?? '';
         final id = _importEventId(key, row);
         if (deleted.contains(id)) continue;
-        imported.add(Event(
-          id: id,
-          title: row['title']?.toString() ?? 'Untitled',
-          date: date,
-          location: location,
-          type: type,
-          activities: notes.isEmpty ? const [] : [notes],
-        ));
+        imported.add(
+          Event(
+            id: id,
+            title: row['title']?.toString() ?? 'Untitled',
+            date: date,
+            location: location,
+            type: type,
+            activities: notes.isEmpty ? const [] : [notes],
+          ),
+        );
       }
     }
 

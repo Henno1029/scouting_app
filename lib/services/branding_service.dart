@@ -3,13 +3,23 @@ import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Image data stored as text, or nothing if it was damaged, so a bad image
+/// shows its fallback instead of crashing the screen.
+Uint8List _decodeImage(String data) {
+  try {
+    return base64Decode(data);
+  } catch (_) {
+    return Uint8List(0);
+  }
+}
+
 class TroopLogo {
   final String name;
   final String dataBase64;
 
   const TroopLogo(this.name, this.dataBase64);
 
-  Uint8List get bytes => base64Decode(dataBase64);
+  Uint8List get bytes => _decodeImage(dataBase64);
 
   Map<String, dynamic> toJson() => {'name': name, 'data': dataBase64};
 
@@ -27,7 +37,7 @@ class PatrolEmblem {
 
   const PatrolEmblem(this.name, this.dataBase64);
 
-  Uint8List get bytes => base64Decode(dataBase64);
+  Uint8List get bytes => _decodeImage(dataBase64);
 
   Map<String, dynamic> toJson() => {'name': name, 'data': dataBase64};
 
@@ -133,8 +143,10 @@ class BrandingService {
     final prefs = await SharedPreferences.getInstance();
     final map = _decodeEmblemMap(prefs.getString(_patrolEmblemsKey));
     return map.map(
-      (patrol, entry) =>
-          MapEntry(patrol, PatrolEmblem.fromJson(Map<String, dynamic>.from(entry))),
+      (patrol, entry) => MapEntry(
+        patrol,
+        PatrolEmblem.fromJson(Map<String, dynamic>.from(entry)),
+      ),
     );
   }
 
@@ -160,7 +172,9 @@ class BrandingService {
     final names = <String>{};
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getStringList(_patrolNamesKey) ?? [];
-    names.addAll(stored.map((name) => name.trim()).where((name) => name.isNotEmpty));
+    names.addAll(
+      stored.map((name) => name.trim()).where((name) => name.isNotEmpty),
+    );
 
     final scoutsRaw = prefs.getString('scouts');
     if (scoutsRaw != null) {

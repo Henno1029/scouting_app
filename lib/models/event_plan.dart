@@ -18,12 +18,12 @@ class PlanItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'minutes': minutes,
-        'who': who,
-        'notes': notes,
-        'target': target,
-      };
+    'title': title,
+    'minutes': minutes,
+    'who': who,
+    'notes': notes,
+    'target': target,
+  };
 
   factory PlanItem.fromJson(Map<String, dynamic> json) {
     return PlanItem(
@@ -59,25 +59,28 @@ class EventPlan {
   });
 
   Map<String, dynamic> toJson() => {
-        'eventId': eventId,
-        'items': items.map((item) => item.toJson()).toList(),
-        'requirements': requirements.toList(),
-        'notes': notes,
-        'details': details,
-      };
+    'eventId': eventId,
+    'items': items.map((item) => item.toJson()).toList(),
+    'requirements': requirements.toList(),
+    'notes': notes,
+    'details': details,
+  };
 
   factory EventPlan.fromJson(Map<String, dynamic> json) {
     return EventPlan(
       eventId: json['eventId']?.toString() ?? '',
       items: (json['items'] as List? ?? const [])
-          .map((item) => PlanItem.fromJson(Map<String, dynamic>.from(item as Map)))
+          .map(
+            (item) => PlanItem.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
           .toList(),
       requirements: (json['requirements'] as List? ?? const [])
           .map((id) => id.toString())
           .toSet(),
       notes: json['notes']?.toString() ?? '',
-      details: (json['details'] as Map? ?? const {})
-          .map((key, value) => MapEntry(key.toString(), value.toString())),
+      details: (json['details'] as Map? ?? const {}).map(
+        (key, value) => MapEntry(key.toString(), value.toString()),
+      ),
     );
   }
 }

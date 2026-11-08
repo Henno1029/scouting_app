@@ -5,6 +5,7 @@ import 'advancement_service.dart';
 /// What one scout has already done, read from the imported advancement data.
 class ScoutProgress {
   final String name;
+  final String memberId;
 
   /// Highest rank earned, or empty if unknown.
   final String rank;
@@ -18,6 +19,7 @@ class ScoutProgress {
 
   const ScoutProgress({
     required this.name,
+    this.memberId = '',
     this.rank = '',
     this.completed = const {},
     this.unreadableRows = 0,
@@ -82,10 +84,12 @@ class RequirementCalculator {
     final settings = settingsFor(event.type);
     final rankIndex = AdvancementService.rankOrder.indexOf(progress.rank);
     return rankRequirements
-        .where((requirement) =>
-            settings.contains(requirement.setting) &&
-            _rankIsOpen(requirement.rank, rankIndex) &&
-            !_isCompleted(requirement, progress))
+        .where(
+          (requirement) =>
+              settings.contains(requirement.setting) &&
+              _rankIsOpen(requirement.rank, rankIndex) &&
+              !_isCompleted(requirement, progress),
+        )
         .toList();
   }
 
@@ -98,7 +102,10 @@ class RequirementCalculator {
     return index <= firstClass || earnedIndex == index - 1;
   }
 
-  static bool _isCompleted(RankRequirement requirement, ScoutProgress progress) {
+  static bool _isCompleted(
+    RankRequirement requirement,
+    ScoutProgress progress,
+  ) {
     final done = progress.completed[requirement.rank];
     if (done == null) return false;
     final number = _leadingNumber.stringMatch(requirement.id);
@@ -116,8 +123,9 @@ class RequirementCalculator {
     'Eagle',
   ];
 
-  static final RegExp _scoutRankType =
-      RegExp(r'^scout(rank)?(requirements?)?$');
+  static final RegExp _scoutRankType = RegExp(
+    r'^scout(rank)?(requirements?)?$',
+  );
 
   static final RegExp _requirementId = RegExp(
     r'^\s*(?:(?:scout|tenderfoot|second class|first class|star|life|rank|'
@@ -158,10 +166,14 @@ class RequirementCalculator {
   /// One scout's progress, falling back on [storedRank] when no earned rank
   /// was imported.
   static ScoutProgress fromIndex(
-      AdvancementIndex index, String name, String storedRank) {
-    final importedRank = index.rank(name);
-    final requirements = index.requirements(name);
-    final advancements = index.advancements(name);
+    AdvancementIndex index,
+    String name,
+    String storedRank, {
+    String memberId = '',
+  }) {
+    final importedRank = index.rank(name, memberId: memberId);
+    final requirements = index.requirements(name, memberId: memberId);
+    final advancements = index.advancements(name, memberId: memberId);
 
     final completed = <String, Set<String>>{};
     var unreadable = 0;
@@ -179,12 +191,16 @@ class RequirementCalculator {
     // Individual Advancement Record imports store requirement rows as type
     // "Rank" without saying which rank they belong to.
     unreadable += advancements
-        .where((entry) =>
-            entry.isRank && AdvancementService.rankFromTitle(entry.title) == null)
+        .where(
+          (entry) =>
+              entry.isRank &&
+              AdvancementService.rankFromTitle(entry.title) == null,
+        )
         .length;
 
     return ScoutProgress(
       name: name,
+      memberId: memberId,
       rank: importedRank ?? storedRank,
       completed: completed,
       unreadableRows: unreadable,

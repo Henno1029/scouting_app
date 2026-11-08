@@ -9,6 +9,7 @@ import '../models/event_plan.dart';
 import '../services/branding_service.dart';
 import '../services/event_plan_service.dart';
 import '../services/official_form_service.dart';
+import '../services/permission_service.dart';
 import '../services/ollama_classifier.dart';
 import '../services/requirement_calculator.dart';
 import '../theme/app_theme.dart';
@@ -64,23 +65,24 @@ class _ItemEditor {
   final TextEditingController target;
 
   _ItemEditor(PlanItem item)
-      : isFormSection = OfficialFormService.meetingSection(item.title) != null,
-        title = TextEditingController(text: item.title),
-        minutes = TextEditingController(
-            text: item.minutes == 0 ? '' : '${item.minutes}'),
-        who = TextEditingController(text: item.who),
-        notes = TextEditingController(text: item.notes),
-        target = TextEditingController(text: item.target);
+    : isFormSection = OfficialFormService.meetingSection(item.title) != null,
+      title = TextEditingController(text: item.title),
+      minutes = TextEditingController(
+        text: item.minutes == 0 ? '' : '${item.minutes}',
+      ),
+      who = TextEditingController(text: item.who),
+      notes = TextEditingController(text: item.notes),
+      target = TextEditingController(text: item.target);
 
   int get minuteCount => int.tryParse(minutes.text) ?? 0;
 
   PlanItem toItem() => PlanItem(
-        title: title.text.trim(),
-        minutes: minuteCount,
-        who: who.text.trim(),
-        notes: notes.text.trim(),
-        target: target.text.trim(),
-      );
+    title: title.text.trim(),
+    minutes: minuteCount,
+    who: who.text.trim(),
+    notes: notes.text.trim(),
+    target: target.text.trim(),
+  );
 
   void dispose() {
     title.dispose();
@@ -114,6 +116,11 @@ class _EventPlanTabState extends State<EventPlanTab> {
 
   Event? get _event => widget.days.isEmpty ? null : widget.days.first;
 
+  bool get _canEdit => PermissionService.state.value.canEdit;
+
+  Widget _locked(Widget child) =>
+      _canEdit ? child : AbsorbPointer(child: child);
+
   EventGroup? get _group =>
       widget.days.isEmpty ? null : EventGroup(widget.days);
 
@@ -144,7 +151,13 @@ class _EventPlanTabState extends State<EventPlanTab> {
   Future<void> _load() async {
     final event = _event;
     if (event == null) return;
-    final plan = await EventPlanService.load(event);
+    EventPlan plan;
+    try {
+      plan = await EventPlanService.load(event);
+    } catch (_) {
+      // A damaged saved plan starts over rather than leaving the tab stuck.
+      plan = EventPlanService.template(event);
+    }
     if (!mounted) return;
     setState(() {
       _items.addAll(plan.items.map(_ItemEditor.new));
@@ -163,16 +176,16 @@ class _EventPlanTabState extends State<EventPlanTab> {
   }
 
   EventPlan _currentPlan(Event event) => EventPlan(
-        eventId: event.id,
-        items: _items.map((item) => item.toItem()).toList(),
-        requirements: _requirements,
-        notes: _notes.text.trim(),
-        details: {
-          for (final entry in _details.entries)
-            if (entry.value.text.trim().isNotEmpty)
-              entry.key: entry.value.text.trim(),
-        },
-      );
+    eventId: event.id,
+    items: _items.map((item) => item.toItem()).toList(),
+    requirements: _requirements,
+    notes: _notes.text.trim(),
+    details: {
+      for (final entry in _details.entries)
+        if (entry.value.text.trim().isNotEmpty)
+          entry.key: entry.value.text.trim(),
+    },
+  );
 
   void _save() {
     final event = _event;
@@ -195,9 +208,11 @@ class _EventPlanTabState extends State<EventPlanTab> {
       await EventPlanService.saveToCalendar(_currentPlan(event), widget.days);
       await widget.onSavedToCalendar();
       if (!mounted) return;
-      _showMessage(dayCount == 1
-          ? 'Plan saved to the calendar'
-          : 'Plan saved to all $dayCount days on the calendar');
+      _showMessage(
+        dayCount == 1
+            ? 'Plan saved to the calendar'
+            : 'Plan saved to all $dayCount days on the calendar',
+      );
     } catch (error) {
       if (mounted) _showMessage('Could not save the plan: $error');
     }
@@ -233,9 +248,8 @@ class _EventPlanTabState extends State<EventPlanTab> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Puts a Meeting Plan row written in someone's own words into the section it
@@ -268,11 +282,15 @@ class _EventPlanTabState extends State<EventPlanTab> {
       _mergeIntoSection(item, section);
     } else if (result.reachable) {
       _settledTitles.add(title);
-      _showMessage('"$title" didn\'t match a section, so it will go on the '
-          'form\'s attached page.');
+      _showMessage(
+        '"$title" didn\'t match a section, so it will go on the '
+        'form\'s attached page.',
+      );
     } else {
-      _showMessage('Couldn\'t reach Ollama to sort "$title". It will go on '
-          'the form\'s attached page unless Ollama is running next time.');
+      _showMessage(
+        'Couldn\'t reach Ollama to sort "$title". It will go on '
+        'the form\'s attached page unless Ollama is running next time.',
+      );
     }
   }
 
@@ -317,24 +335,26 @@ class _EventPlanTabState extends State<EventPlanTab> {
       }
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Put "$typed" in $sectionTitle'),
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () {
-          if (!mounted) return;
-          _settledTitles.add(typed);
-          _change(() {
-            for (final row in _items) {
-              row.dispose();
-            }
-            _items
-              ..clear()
-              ..addAll(before.map(_ItemEditor.new));
-          });
-        },
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Put "$typed" in $sectionTitle'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            if (!mounted) return;
+            _settledTitles.add(typed);
+            _change(() {
+              for (final row in _items) {
+                row.dispose();
+              }
+              _items
+                ..clear()
+                ..addAll(before.map(_ItemEditor.new));
+            });
+          },
+        ),
       ),
-    ));
+    );
   }
 
   void _move(int index, int by) {
@@ -363,10 +383,18 @@ class _EventPlanTabState extends State<EventPlanTab> {
             child: Center(child: CircularProgressIndicator()),
           )
         else ...[
-          _buildAgendaCard(),
-          _buildFormDetailsCard(),
-          _buildRequirementsCard(event),
-          _buildNotesCard(),
+          if (!_canEdit)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: _note(
+                'You can read and print this plan. Ask an '
+                'Editor to change it.',
+              ),
+            ),
+          _locked(_buildAgendaCard()),
+          _locked(_buildFormDetailsCard()),
+          _locked(_buildRequirementsCard(event)),
+          _locked(_buildNotesCard()),
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
             child: SizedBox(
@@ -374,9 +402,7 @@ class _EventPlanTabState extends State<EventPlanTab> {
               child: OutlinedButton.icon(
                 onPressed: _filling ? null : _fillOfficialForm,
                 icon: const Icon(Icons.description_outlined),
-                label: Text(
-                  'Fill out ${OfficialFormService.formName(_form!)}',
-                ),
+                label: Text('Fill out ${OfficialFormService.formName(_form!)}'),
               ),
             ),
           ),
@@ -385,7 +411,7 @@ class _EventPlanTabState extends State<EventPlanTab> {
             child: SizedBox(
               height: 48,
               child: FilledButton.icon(
-                onPressed: _saving ? null : _saveToCalendar,
+                onPressed: _saving || !_canEdit ? null : _saveToCalendar,
                 icon: const Icon(Icons.save_outlined),
                 label: const Text('Save'),
               ),
@@ -457,8 +483,10 @@ class _EventPlanTabState extends State<EventPlanTab> {
             ),
             if (_form == OfficialForm.meetingPlan) ...[
               const SizedBox(height: 4),
-              _note('Add a row in your own words, like "instruction", and '
-                  'your local Ollama model puts it in the matching section.'),
+              _note(
+                'Add a row in your own words, like "instruction", and '
+                'your local Ollama model puts it in the matching section.',
+              ),
             ],
             const SizedBox(height: 12),
             for (var i = 0; i < _items.length; i++) _buildItem(i),
@@ -490,26 +518,27 @@ class _EventPlanTabState extends State<EventPlanTab> {
                     if (!focused) _sortRow(item);
                   },
                   child: TextField(
-                  onSubmitted: (_) => _sortRow(item),
-                  controller: item.title,
-                  readOnly:
-                      _form == OfficialForm.meetingPlan && item.isFormSection,
-                  onChanged: (_) => _save(),
-                  decoration: InputDecoration(
-                    labelText: _usesPhases ? 'Phase' : 'Item',
-                    isDense: true,
-                    suffixIcon: item.sorting
-                        ? const Padding(
-                            padding: EdgeInsets.all(10),
-                            child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
-                        : null,
-                  ),
+                    onSubmitted: (_) => _sortRow(item),
+                    controller: item.title,
+                    readOnly:
+                        _form == OfficialForm.meetingPlan && item.isFormSection,
+                    onChanged: (_) => _save(),
+                    decoration: InputDecoration(
+                      labelText: _usesPhases ? 'Phase' : 'Item',
+                      isDense: true,
+                      suffixIcon: item.sorting
+                          ? const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
                   ),
                 ),
               ),
@@ -533,8 +562,10 @@ class _EventPlanTabState extends State<EventPlanTab> {
                     controller: item.minutes,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration:
-                        const InputDecoration(labelText: 'Min', isDense: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Min',
+                      isDense: true,
+                    ),
                     onChanged: (_) {
                       _total.value = _totalLabel;
                       _save();
@@ -564,8 +595,9 @@ class _EventPlanTabState extends State<EventPlanTab> {
               IconButton(
                 icon: const Icon(Icons.arrow_downward),
                 tooltip: 'Move down',
-                onPressed:
-                    index == _items.length - 1 ? null : () => _move(index, 1),
+                onPressed: index == _items.length - 1
+                    ? null
+                    : () => _move(index, 1),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
@@ -652,8 +684,7 @@ class _EventPlanTabState extends State<EventPlanTab> {
       for (var i = 0; i < options.length; i++) _keyOf(options[i]): i,
     };
     options.sort((a, b) {
-      final byNeed =
-          (counts[_keyOf(b)] ?? 0).compareTo(counts[_keyOf(a)] ?? 0);
+      final byNeed = (counts[_keyOf(b)] ?? 0).compareTo(counts[_keyOf(a)] ?? 0);
       return byNeed != 0
           ? byNeed
           : order[_keyOf(a)]!.compareTo(order[_keyOf(b)]!);
@@ -663,7 +694,8 @@ class _EventPlanTabState extends State<EventPlanTab> {
     if (!_showAllRequirements) {
       shown = [
         for (var i = 0; i < options.length; i++)
-          if (i < _shortListLength || _requirements.contains(_keyOf(options[i])))
+          if (i < _shortListLength ||
+              _requirements.contains(_keyOf(options[i])))
             options[i],
       ];
     }
@@ -676,11 +708,13 @@ class _EventPlanTabState extends State<EventPlanTab> {
           children: [
             _heading('Requirements to cover'),
             const SizedBox(height: 4),
-            _note(options.isEmpty
-                ? 'No rank requirements to suggest for this event. It may be '
-                    'a type with none tied to it, or no listed scout needs any.'
-                : 'Most needed first, for the scouts ticked on the Event '
-                    'Calculations tab, or everyone if none are ticked.'),
+            _note(
+              options.isEmpty
+                  ? 'No rank requirements to suggest for this event. It may be '
+                        'a type with none tied to it, or no listed scout needs any.'
+                  : 'Most needed first, for the scouts ticked on the Event '
+                        'Calculations tab, or everyone if none are ticked.',
+            ),
             for (final requirement in shown)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
@@ -705,9 +739,11 @@ class _EventPlanTabState extends State<EventPlanTab> {
                 onPressed: () => setState(
                   () => _showAllRequirements = !_showAllRequirements,
                 ),
-                child: Text(_showAllRequirements
-                    ? 'Show fewer'
-                    : 'Show all ${options.length}'),
+                child: Text(
+                  _showAllRequirements
+                      ? 'Show fewer'
+                      : 'Show all ${options.length}',
+                ),
               ),
           ],
         ),

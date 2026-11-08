@@ -6,6 +6,9 @@ import 'package:scouting_app/services/calculation_pdf_service.dart';
 import 'package:scouting_app/services/requirement_calculator.dart';
 
 void main() {
+  // PDFs load their font from the app's bundled assets.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   final event = Event(
     id: 'camp',
     title: 'Fall Campout',

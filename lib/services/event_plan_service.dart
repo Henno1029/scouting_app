@@ -41,22 +41,25 @@ class EventPlanService {
   static Future<void> saveToCalendar(EventPlan plan, List<Event> days) async {
     await save(plan);
     for (final day in days) {
-      await EventService.update(Event(
-        id: day.id,
-        title: day.title,
-        date: day.date,
-        location: day.location,
-        type: day.type,
-        description: mergeDescription(day.description, plan),
-        activities: day.activities,
-      ));
+      await EventService.update(
+        Event(
+          id: day.id,
+          title: day.title,
+          date: day.date,
+          location: day.location,
+          type: day.type,
+          description: mergeDescription(day.description, plan),
+          activities: day.activities,
+        ),
+      );
     }
   }
 
   static const String _summaryStart = 'Event plan';
 
-  static final RegExp _existingSummary =
-      RegExp('(^|\\n)$_summaryStart( \\(\\d+ min\\))?:[\\s\\S]*\$');
+  static final RegExp _existingSummary = RegExp(
+    '(^|\\n)$_summaryStart( \\(\\d+ min\\))?:[\\s\\S]*\$',
+  );
 
   /// [description] with its plan summary replaced by the one for [plan]. Text
   /// before the summary is kept. The summary is always last, so anything typed
@@ -70,7 +73,9 @@ class EventPlanService {
   /// A text summary of [plan], or an empty string if it has nothing in it.
   static String describe(EventPlan plan) {
     final items = plan.items
-        .where((item) => item.title.isNotEmpty && !_isUntouchedTemplateRow(item))
+        .where(
+          (item) => item.title.isNotEmpty && !_isUntouchedTemplateRow(item),
+        )
         .toList();
     final total = items.fold<int>(0, (sum, item) => sum + item.minutes);
     final notes = plan.notes.trim();
@@ -96,20 +101,18 @@ class EventPlanService {
 
   /// A starter row nobody has filled in, which the summary leaves out.
   static bool _isUntouchedTemplateRow(PlanItem item) {
-    final isEmpty = item.minutes == 0 &&
+    final isEmpty =
+        item.minutes == 0 &&
         item.who.isEmpty &&
         item.notes.isEmpty &&
         item.target.isEmpty;
     if (!isEmpty) return false;
-    return [..._meeting, ..._phases]
-        .any((row) => row.title == item.title);
+    return [..._meeting, ..._phases].any((row) => row.title == item.title);
   }
 
   /// A starter agenda for the event's type, meant to be edited.
-  static EventPlan template(Event event) => EventPlan(
-        eventId: event.id,
-        items: event.isMeeting ? _meeting : _phases,
-      );
+  static EventPlan template(Event event) =>
+      EventPlan(eventId: event.id, items: event.isMeeting ? _meeting : _phases);
 
   /// The sections of the official Meeting Plan. The minutes add up to the 90
   /// the form prints, leaving out Preopening and After the Meeting, which fall

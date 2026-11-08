@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/branding_service.dart';
+import '../services/permission_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/image_utils.dart';
 
@@ -74,9 +75,8 @@ class _BrandingScreenState extends State<BrandingScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _uploadTroopLogo() async {
@@ -91,7 +91,10 @@ class _BrandingScreenState extends State<BrandingScreen> {
     final bytes = await _pickImageBytes('Select $patrol emblem');
     if (bytes == null) return;
     await BrandingService.savePatrolEmblem(
-        patrol: patrol, name: '${patrol}_emblem', bytes: bytes);
+      patrol: patrol,
+      name: '${patrol}_emblem',
+      bytes: bytes,
+    );
     _showMessage('$patrol emblem uploaded');
     _refresh();
   }
@@ -107,7 +110,11 @@ class _BrandingScreenState extends State<BrandingScreen> {
         ? CircleAvatar(
             radius: size / 2,
             backgroundColor: AppTheme.scoutingTan,
-            child: Icon(Icons.groups, size: size * 0.5, color: AppTheme.scoutingBlue),
+            child: Icon(
+              Icons.groups,
+              size: size * 0.5,
+              color: AppTheme.scoutingBlue,
+            ),
           )
         : Container(
             width: size,
@@ -116,8 +123,11 @@ class _BrandingScreenState extends State<BrandingScreen> {
               color: AppTheme.scoutingTan,
               borderRadius: BorderRadius.circular(size * 0.18),
             ),
-            child: Icon(Icons.face_3,
-                size: size * 0.5, color: AppTheme.scoutingBlue),
+            child: Icon(
+              Icons.face_3,
+              size: size * 0.5,
+              color: AppTheme.scoutingBlue,
+            ),
           );
     if (emblem == null || emblem.dataBase64.isEmpty) return fallback;
     final content = Padding(
@@ -155,217 +165,238 @@ class _BrandingScreenState extends State<BrandingScreen> {
       appBar: AppBar(title: const Text('Branding & Patrols')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Troop Logo',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.scoutingDarkBlue,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            _emblem(
-                              _troopLogo == null
-                                  ? null
-                                  : PatrolEmblem(_troopLogo!.name, _troopLogo!.dataBase64),
-                              size: 88,
-                              circle: false,
+          : AbsorbPointer(
+              absorbing: !PermissionService.state.value.canEdit,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Troop Logo',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.scoutingDarkBlue,
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _troopLogo == null
-                                        ? 'No logo uploaded'
-                                        : _troopLogo!.name,
-                                    style: Theme.of(context).textTheme.bodyMedium,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      OutlinedButton.icon(
-                                        onPressed: _uploadTroopLogo,
-                                        icon: const Icon(Icons.upload_file),
-                                        label: const Text('Upload'),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              _emblem(
+                                _troopLogo == null
+                                    ? null
+                                    : PatrolEmblem(
+                                        _troopLogo!.name,
+                                        _troopLogo!.dataBase64,
                                       ),
-                                      if (_troopLogo != null) ...[
-                                        const SizedBox(width: 8),
-                                        TextButton.icon(
-                                          onPressed: () async {
-                                            await BrandingService.removeTroopLogo();
-                                            _refresh();
-                                          },
-                                          icon: const Icon(Icons.delete_outline),
-                                          label: const Text('Remove'),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: AppTheme.scoutingRed,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ],
+                                size: 88,
+                                circle: false,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _troopNameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Troop name',
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () async {
-                                await BrandingService.saveTroopName(
-                                    _troopNameController.text);
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Troop name saved')),
-                                );
-                              },
-                              child: const Text('Save'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _troopWebsiteController,
-                                keyboardType: TextInputType.url,
-                                decoration: const InputDecoration(
-                                  labelText: 'Troop website URL',
-                                  hintText: 'https://example.org',
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () async {
-                                await BrandingService.saveTroopWebsite(
-                                    _troopWebsiteController.text);
-                                _troopWebsiteController.text =
-                                    await BrandingService.loadTroopWebsite() ??
-                                        '';
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Troop website saved')),
-                                );
-                              },
-                              child: const Text('Save'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Patrol Emblems',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.scoutingDarkBlue,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Upload an emblem for each patrol in the troop.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        if (_patrols.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Text('No patrols yet. Add scouts with a patrol '
-                                'name or register one below.'),
-                          )
-                        else
-                          ..._patrols.map((patrol) {
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: _emblem(_emblems[patrol]),
-                              title: Text(patrol),
-                              subtitle: _emblems[patrol] == null
-                                  ? const Text('No emblem')
-                                  : Text(_emblems[patrol]!.name),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.upload_file),
-                                    tooltip: 'Upload emblem',
-                                    onPressed: () => _uploadPatrolEmblem(patrol),
-                                  ),
-                                  if (_emblems[patrol] != null)
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline),
-                                      tooltip: 'Remove emblem',
-                                      color: AppTheme.scoutingRed,
-                                      onPressed: () async {
-                                        await BrandingService.removePatrolEmblem(patrol);
-                                        _refresh();
-                                      },
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _troopLogo == null
+                                          ? 'No logo uploaded'
+                                          : _troopLogo!.name,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
                                     ),
-                                ],
-                              ),
-                            );
-                          }),
-                        const Divider(),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _patrolController,
-                                decoration: const InputDecoration(
-                                  labelText: 'New patrol name',
-                                  isDense: true,
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        OutlinedButton.icon(
+                                          onPressed: _uploadTroopLogo,
+                                          icon: const Icon(Icons.upload_file),
+                                          label: const Text('Upload'),
+                                        ),
+                                        if (_troopLogo != null) ...[
+                                          const SizedBox(width: 8),
+                                          TextButton.icon(
+                                            onPressed: () async {
+                                              await BrandingService.removeTroopLogo();
+                                              _refresh();
+                                            },
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                            ),
+                                            label: const Text('Remove'),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor:
+                                                  AppTheme.scoutingRed,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: _addPatrol,
-                              child: const Text('Add'),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _troopNameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Troop name',
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  await BrandingService.saveTroopName(
+                                    _troopNameController.text,
+                                  );
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Troop name saved'),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Save'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _troopWebsiteController,
+                                  keyboardType: TextInputType.url,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Troop website URL',
+                                    hintText: 'https://example.org',
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  await BrandingService.saveTroopWebsite(
+                                    _troopWebsiteController.text,
+                                  );
+                                  _troopWebsiteController.text =
+                                      await BrandingService.loadTroopWebsite() ??
+                                      '';
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Troop website saved'),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Save'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Patrol Emblems',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.scoutingDarkBlue,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Upload an emblem for each patrol in the troop.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 12),
+                          if (_patrols.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                'No patrols yet. Add scouts with a patrol '
+                                'name or register one below.',
+                              ),
+                            )
+                          else
+                            ..._patrols.map((patrol) {
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: _emblem(_emblems[patrol]),
+                                title: Text(patrol),
+                                subtitle: _emblems[patrol] == null
+                                    ? const Text('No emblem')
+                                    : Text(_emblems[patrol]!.name),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.upload_file),
+                                      tooltip: 'Upload emblem',
+                                      onPressed: () =>
+                                          _uploadPatrolEmblem(patrol),
+                                    ),
+                                    if (_emblems[patrol] != null)
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline),
+                                        tooltip: 'Remove emblem',
+                                        color: AppTheme.scoutingRed,
+                                        onPressed: () async {
+                                          await BrandingService.removePatrolEmblem(
+                                            patrol,
+                                          );
+                                          _refresh();
+                                        },
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          const Divider(),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _patrolController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'New patrol name',
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: _addPatrol,
+                                child: const Text('Add'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
     );
   }

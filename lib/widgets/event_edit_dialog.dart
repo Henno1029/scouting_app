@@ -119,8 +119,7 @@ class _EventEditDialogState extends State<EventEditDialog> {
                 for (final type in _typeOptions)
                   DropdownMenuItem(value: type, child: Text(type)),
               ],
-              onChanged: (value) =>
-                  setState(() => _type = value ?? _type),
+              onChanged: (value) => setState(() => _type = value ?? _type),
             ),
             const SizedBox(height: 12),
             ListTile(

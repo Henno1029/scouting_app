@@ -50,7 +50,8 @@ void main() {
       (WidgetTester tester) async {
     await pumpCalendar(tester);
 
-    await tester.tap(find.widgetWithText(ListTile, 'Summer Camp'));
+    // Tap the day on the calendar; the list below opens Event Detail.
+    await tester.tap(find.text('Summer Camp').first);
     await tester.pumpAndSettle();
     expect(find.text('Add Event'), findsOneWidget);
 

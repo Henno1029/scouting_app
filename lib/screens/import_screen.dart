@@ -1,10 +1,13 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../services/backup_service.dart';
 import '../services/csv_import_service.dart';
 import '../services/event_service.dart';
+import '../services/iar_parser.dart';
+import '../services/permission_service.dart';
 import '../services/ollama_classifier.dart';
 import '../services/program_grid_parser.dart';
 import '../theme/app_theme.dart';
@@ -32,7 +35,14 @@ class _ImportScreenState extends State<ImportScreen> {
   String _aiModel = 'qwen3:8b';
   String _classifyStatus = '';
 
-  bool get _isGrid => _target.isGridLayout;
+  /// The file picked, kept so changing the report type re-reads it.
+  String? _content;
+
+  /// True when a Program Calendar file is a plain list of dates and titles
+  /// rather than the planning grid, so it uses the column mapper.
+  bool _flatCalendar = false;
+
+  bool get _isGrid => _target.isGridLayout && !_flatCalendar;
 
   static const List<String> _models = [
     'qwen3:8b',
@@ -45,12 +55,7 @@ class _ImportScreenState extends State<ImportScreen> {
   void _setTarget(ImportTarget target) {
     setState(() {
       _target = target;
-      if (!_isGrid) {
-        _gridRows = const [];
-        _gridDrafts = const [];
-        _classifyStatus = '';
-      }
-      _applyTargetRows();
+      _readContent();
     });
   }
 
@@ -68,14 +73,50 @@ class _ImportScreenState extends State<ImportScreen> {
   void _parse(String name, String content) {
     setState(() {
       _fileName = name;
-      _parsed = CsvImportService.parse(content);
-      if (_isGrid) {
-        _gridRows = CsvImportService.decodeRows(content);
-        _gridLayout = ProgramGridParser.detect(_gridRows);
-        _classifyStatus = '';
-      }
-      _applyTargetRows();
+      _content = content;
+      _readContent();
     });
+  }
+
+  /// Reads the picked file for the chosen report type.
+  void _readContent() {
+    _gridRows = const [];
+    _gridDrafts = const [];
+    _classifyStatus = '';
+    _flatCalendar = false;
+    final content = _content;
+    if (content == null) {
+      _parsed = CsvTable.empty;
+      _table = CsvTable.empty;
+      _mapping = {};
+      return;
+    }
+    final rows = CsvImportService.decodeRows(content);
+    if (_target.id == 'iar') {
+      // One scout's Individual Advancement Record, turned into rows.
+      final converted = IarParser.toRows(rows);
+      _parsed = CsvTable(
+        headers: converted.first,
+        rows: converted.skip(1).toList(),
+      );
+    } else {
+      _parsed = CsvImportService.parse(content);
+    }
+    if (_target.isGridLayout) {
+      final plainList =
+          !ProgramGridParser.hasGridHeader(rows) &&
+          CsvImportService.missingRequired(
+            _target,
+            CsvImportService.autoMap(_target, _parsed.headers),
+          ).isEmpty;
+      if (plainList) {
+        _flatCalendar = true;
+      } else {
+        _gridRows = rows;
+        _gridLayout = ProgramGridParser.detect(rows);
+      }
+    }
+    _applyTargetRows();
   }
 
   void _applyTargetRows() {
@@ -103,15 +144,17 @@ class _ImportScreenState extends State<ImportScreen> {
     return CsvTable(
       headers: const ['Date', 'Title', 'Type', 'Location', 'Notes'],
       rows: drafts
-          .map((d) => [
-                d.date == null
-                    ? ''
-                    : '${d.date!.month}/${d.date!.day}/${d.date!.year}',
-                d.title,
-                d.type,
-                d.location,
-                d.notes,
-              ])
+          .map(
+            (d) => [
+              d.date == null
+                  ? ''
+                  : '${d.date!.month}/${d.date!.day}/${d.date!.year}',
+              d.title,
+              d.type,
+              d.location,
+              d.notes,
+            ],
+          )
           .toList(),
     );
   }
@@ -157,7 +200,9 @@ class _ImportScreenState extends State<ImportScreen> {
           Chip(
             label: Text('${entry.key} ${entry.value}'),
             backgroundColor: AppTheme.eventTypeColor(entry.key),
-            side: BorderSide(color: AppTheme.scoutingWarmGray.withValues(alpha: 0.3)),
+            side: BorderSide(
+              color: AppTheme.scoutingWarmGray.withValues(alpha: 0.3),
+            ),
             labelStyle: const TextStyle(
               fontSize: 12,
               color: AppTheme.scoutingDarkBlue,
@@ -236,17 +281,21 @@ class _ImportScreenState extends State<ImportScreen> {
       _showSnack('No data rows found in the file.');
       return;
     }
-    final result =
-        await CsvImportService.save(_target, _fileName ?? 'untitled.csv', records);
+    final result = await CsvImportService.save(
+      _target,
+      _fileName ?? 'untitled.csv',
+      records,
+    );
 
-    if (_isGrid) {
+    if (_target.isGridLayout) {
       await EventService.clearDeletedImports(_target.storageKey);
     }
     var message = result.added == result.total
         ? 'Imported ${result.added} ${_target.label} records'
         : 'Imported ${result.added} new ${_target.label} records (${result.total} total)';
     if (result.scoutsAdded > 0) {
-      message += ' • Created ${result.scoutsAdded} '
+      message +=
+          ' • Created ${result.scoutsAdded} '
           '${result.scoutsAdded == 1 ? 'scout' : 'scouts'} from the roster';
     }
     if (_isGrid) {
@@ -258,6 +307,67 @@ class _ImportScreenState extends State<ImportScreen> {
       }
     }
     _showSnack(message);
+  }
+
+  Future<void> _saveBackup() async {
+    try {
+      final now = DateTime.now();
+      final saved = await FilePicker.saveFile(
+        fileName: BackupService.fileName(now),
+        bytes: await BackupService.export(now: now),
+        mimeType: 'application/json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        dialogTitle: 'Save backup',
+      );
+      if (saved != null) _showSnack('Backup saved.');
+    } catch (error) {
+      _showSnack('Could not save the backup: $error');
+    }
+  }
+
+  Future<void> _restoreBackup() async {
+    final file = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      dialogTitle: 'Choose a backup',
+    );
+    if (file == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restore this backup?'),
+        content: Text(
+          'Everything in the app now, including scouts, imports, events, '
+          'plans and branding, will be replaced with what is in '
+          '"${file.name}". Save a backup first if you might want it back.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Replace everything',
+              style: TextStyle(color: AppTheme.scoutingRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final count = await BackupService.restore(await file.readAsBytes());
+      // The backup brings its own users and permissions.
+      await PermissionService.load();
+      _showSnack('Restored $count saved items. Go back to see them.');
+    } on FormatException catch (error) {
+      _showSnack(error.message);
+    } catch (error) {
+      _showSnack('Could not restore the backup: $error');
+    }
   }
 
   void _showSnack(String message) {
@@ -293,13 +403,18 @@ class _ImportScreenState extends State<ImportScreen> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: _target.id,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Report type'),
                     items: CsvImportService.targets
-                        .map((target) => DropdownMenuItem(
-                              value: target.id,
-                              child: Text(
-                                  '${target.label} - ${target.description}'),
-                            ))
+                        .map(
+                          (target) => DropdownMenuItem(
+                            value: target.id,
+                            child: Text(
+                              '${target.label} - ${target.description}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
                         .toList(),
                     onChanged: (id) {
                       if (id != null) {
@@ -335,8 +450,7 @@ class _ImportScreenState extends State<ImportScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'File: $_fileName',
-                      style:
-                          const TextStyle(color: AppTheme.scoutingWarmGray),
+                      style: const TextStyle(color: AppTheme.scoutingWarmGray),
                     ),
                     if (!_isGrid) ...[
                       const SizedBox(height: 4),
@@ -353,8 +467,7 @@ class _ImportScreenState extends State<ImportScreen> {
                       'Planning-calendar grid detected: '
                       '${_gridDrafts.length} events across '
                       '${_gridTypeCounts().length} types.',
-                      style:
-                          const TextStyle(color: AppTheme.scoutingWarmGray),
+                      style: const TextStyle(color: AppTheme.scoutingWarmGray),
                     ),
                     const SizedBox(height: 8),
                     _typeSummary(),
@@ -383,9 +496,7 @@ class _ImportScreenState extends State<ImportScreen> {
             _buildMappingCard(),
             _buildPreviewCard(),
           ],
-          if (_isGrid && _table.rows.isNotEmpty) ...[
-            _buildGridPreviewCard(),
-          ],
+          if (_isGrid && _table.rows.isNotEmpty) ...[_buildGridPreviewCard()],
           if (_table.rows.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -393,13 +504,66 @@ class _ImportScreenState extends State<ImportScreen> {
                 width: double.infinity,
                 height: 48,
                 child: FilledButton.icon(
-                  onPressed: _import,
+                  onPressed: PermissionService.state.value.canEdit
+                      ? _import
+                      : null,
                   icon: const Icon(Icons.download_done),
                   label: Text('Import ${_target.label}'),
                 ),
               ),
             ),
+          _buildBackupCard(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBackupCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Backup and restore',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.scoutingDarkBlue,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Everything is stored in this browser, so clearing browser data '
+              'erases it. Save a backup file now and then, and keep it safe: it '
+              'holds every scout\'s records. Saving needs an Editor and '
+              'restoring needs an Admin.',
+              style: TextStyle(fontSize: 12, color: AppTheme.scoutingWarmGray),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: PermissionService.state.value.canEdit
+                      ? _saveBackup
+                      : null,
+                  icon: const Icon(Icons.save_alt),
+                  label: const Text('Save backup'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: PermissionService.state.value.canAdmin
+                      ? _restoreBackup
+                      : null,
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Restore backup'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -421,13 +585,11 @@ class _ImportScreenState extends State<ImportScreen> {
           ),
         ),
         DropdownButtonFormField<int>(
+          isExpanded: true,
           initialValue: index,
           decoration: const InputDecoration(isDense: true),
           items: [
-            const DropdownMenuItem<int>(
-              value: -1,
-              child: Text('— Auto —'),
-            ),
+            const DropdownMenuItem<int>(value: -1, child: Text('— Auto —')),
             for (var i = 0; i < headers.length; i++)
               DropdownMenuItem<int>(
                 value: i,
@@ -528,43 +690,89 @@ class _ImportScreenState extends State<ImportScreen> {
               style: TextStyle(fontSize: 12, color: AppTheme.scoutingWarmGray),
             ),
             const SizedBox(height: 12),
-            _roleRow('Month column', _gridLayout.monthCol,
-                (value) => _setColumn('month', value)),
-            _roleRow('Program Feature column', _gridLayout.featureCol,
-                (value) => _setColumn('feature', value)),
+            _roleRow(
+              'Month column',
+              _gridLayout.monthCol,
+              (value) => _setColumn('month', value),
+            ),
+            _roleRow(
+              'Program Feature column',
+              _gridLayout.featureCol,
+              (value) => _setColumn('feature', value),
+            ),
             for (var w = 0; w < _gridLayout.weekCols.length; w++)
-              _roleRow(
-                  'Week ${w + 1} date column', _gridLayout.weekCols[w], (value) {
+              _roleRow('Week ${w + 1} date column', _gridLayout.weekCols[w], (
+                value,
+              ) {
                 final cols = List<int>.from(_gridLayout.weekCols);
                 cols[w] = value;
                 _setLayout(_gridLayout.copyWith(weekCols: cols));
               }),
-            _roleRow('Camping column', _gridLayout.campingCol,
-                (value) => _setColumn('camping', value)),
-            _roleRow('Event column', _gridLayout.eventCol,
-                (value) => _setColumn('event', value)),
-            _roleRow('Holiday column', _gridLayout.holidayCol,
-                (value) => _setColumn('holiday', value)),
-            _roleRow('Service Project column', _gridLayout.serviceProjectCol,
-                (value) => _setColumn('service', value)),
-            _roleRow('Special Event column', _gridLayout.specialEventCol,
-                (value) => _setColumn('special', value)),
-            _roleRow('Tasks column', _gridLayout.tasksCol,
-                (value) => _setColumn('tasks', value)),
-            _roleRow('Council Activity column', _gridLayout.councilCol,
-                (value) => _setColumn('council', value)),
-            _roleRow('PLC column', _gridLayout.plcCol,
-                (value) => _setColumn('plc', value)),
-            _roleRow('Committee column', _gridLayout.committeeCol,
-                (value) => _setColumn('committee', value)),
-            _roleRow('Roundtable column', _gridLayout.roundtableCol,
-                (value) => _setColumn('roundtable', value)),
-            _roleRow('Other column', _gridLayout.otherCol,
-                (value) => _setColumn('other', value)),
-            _roleRow('Hunting column', _gridLayout.huntingCol,
-                (value) => _setColumn('hunting', value)),
-            _roleRow('OA column', _gridLayout.oaCol,
-                (value) => _setColumn('oa', value)),
+            _roleRow(
+              'Camping column',
+              _gridLayout.campingCol,
+              (value) => _setColumn('camping', value),
+            ),
+            _roleRow(
+              'Event column',
+              _gridLayout.eventCol,
+              (value) => _setColumn('event', value),
+            ),
+            _roleRow(
+              'Holiday column',
+              _gridLayout.holidayCol,
+              (value) => _setColumn('holiday', value),
+            ),
+            _roleRow(
+              'Service Project column',
+              _gridLayout.serviceProjectCol,
+              (value) => _setColumn('service', value),
+            ),
+            _roleRow(
+              'Special Event column',
+              _gridLayout.specialEventCol,
+              (value) => _setColumn('special', value),
+            ),
+            _roleRow(
+              'Tasks column',
+              _gridLayout.tasksCol,
+              (value) => _setColumn('tasks', value),
+            ),
+            _roleRow(
+              'Council Activity column',
+              _gridLayout.councilCol,
+              (value) => _setColumn('council', value),
+            ),
+            _roleRow(
+              'PLC column',
+              _gridLayout.plcCol,
+              (value) => _setColumn('plc', value),
+            ),
+            _roleRow(
+              'Committee column',
+              _gridLayout.committeeCol,
+              (value) => _setColumn('committee', value),
+            ),
+            _roleRow(
+              'Roundtable column',
+              _gridLayout.roundtableCol,
+              (value) => _setColumn('roundtable', value),
+            ),
+            _roleRow(
+              'Other column',
+              _gridLayout.otherCol,
+              (value) => _setColumn('other', value),
+            ),
+            _roleRow(
+              'Hunting column',
+              _gridLayout.huntingCol,
+              (value) => _setColumn('hunting', value),
+            ),
+            _roleRow(
+              'OA column',
+              _gridLayout.oaCol,
+              (value) => _setColumn('oa', value),
+            ),
             const SizedBox(height: 8),
             _offsetRow(
               'Week dates row (below the month row)',
@@ -596,14 +804,12 @@ class _ImportScreenState extends State<ImportScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: DropdownButtonFormField<int>(
+        isExpanded: true,
         initialValue: value,
         decoration: InputDecoration(labelText: label, isDense: true),
         items: [
           for (var i = 0; i < options.length; i++)
-            DropdownMenuItem<int>(
-              value: options[i],
-              child: Text(labels[i]),
-            ),
+            DropdownMenuItem<int>(value: options[i], child: Text(labels[i])),
         ],
         onChanged: (selected) {
           if (selected != null) onChanged(selected);
@@ -645,14 +851,13 @@ class _ImportScreenState extends State<ImportScreen> {
             if (_useAi) ...[
               DropdownButtonFormField<String>(
                 initialValue: _aiModel,
-                decoration:
-                    const InputDecoration(labelText: 'Model', isDense: true),
+                decoration: const InputDecoration(
+                  labelText: 'Model',
+                  isDense: true,
+                ),
                 items: [
                   for (final model in _models)
-                    DropdownMenuItem<String>(
-                      value: model,
-                      child: Text(model),
-                    ),
+                    DropdownMenuItem<String>(value: model, child: Text(model)),
                 ],
                 onChanged: (value) {
                   if (value != null) setState(() => _aiModel = value);
@@ -678,7 +883,9 @@ class _ImportScreenState extends State<ImportScreen> {
                 Text(
                   _classifyStatus,
                   style: const TextStyle(
-                      fontSize: 12, color: AppTheme.scoutingWarmGray),
+                    fontSize: 12,
+                    color: AppTheme.scoutingWarmGray,
+                  ),
                 ),
               ],
             ],
@@ -731,8 +938,10 @@ class _ImportScreenState extends State<ImportScreen> {
                       child: InputDecorator(
                         decoration: const InputDecoration(
                           isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
@@ -831,7 +1040,9 @@ class _ImportScreenState extends State<ImportScreen> {
               'Showing ${previewRows.length} sampled rows (2 per type) of '
               '${_table.rows.length} total events',
               style: const TextStyle(
-                  fontSize: 12, color: AppTheme.scoutingWarmGray),
+                fontSize: 12,
+                color: AppTheme.scoutingWarmGray,
+              ),
             ),
           ],
         ),
@@ -866,8 +1077,9 @@ class _ImportScreenState extends State<ImportScreen> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  columns:
-                      headers.map((header) => DataColumn(label: Text(header))).toList(),
+                  columns: headers
+                      .map((header) => DataColumn(label: Text(header)))
+                      .toList(),
                   rows: previewRows.map((row) {
                     return DataRow(
                       cells: headers.map((header) {
@@ -888,7 +1100,9 @@ class _ImportScreenState extends State<ImportScreen> {
             Text(
               'Showing first ${previewRows.length} of ${_table.rows.length} rows',
               style: const TextStyle(
-                  fontSize: 12, color: AppTheme.scoutingWarmGray),
+                fontSize: 12,
+                color: AppTheme.scoutingWarmGray,
+              ),
             ),
           ],
         ),

@@ -108,6 +108,24 @@ Both buttons are on the Scout List Screen and open the print dialog.
 - **Print out Statistics** — the user picks a start date, and the report runs from then through today: each scout's ranks and merit badges earned, plus troop totals such as campouts, camping nights, service projects and hours, miles hiked, awards, requirements, events by type and most-earned badges.
 - Campouts come from finished calendar campouts, with a multi-day campout counted once, plus others found only in the activity report. Service hours, nights and miles come from the activity report's Hours, Nights and Miles columns, or text like "3 hours" in Notes.
 
+## More screens
+
+- **Event Detail** (`/eventDetail`): opens from an event in the calendar's month list or day view, with a multi-day campout shown as one event. It shows the event's details, attendance, and the requirements the scouts who came can complete. Saving attendance writes those scouts into the activity report, so Statistics counts the campout, nights and service hours.
+- **Merit Badge Planner** (`/badgePlanner`): type the badges a camp offers to see who still needs each, with Eagle-required badges first.
+- **Ask Your Troop** (`/ask`): plain-language questions about the troop, answered by the local Ollama model only from a summary of the troop's data.
+- **Users & Permissions** (`/users`): opened from the person icon on the hub. See Permission System below.
+- **Scout Detail** also shows progress toward the next rank, the Eagle-required merit badges, age, and the 18th-birthday Eagle deadline when a birthday is known.
+- **Upload Data** also has Backup and restore: save everything to one file and load it back.
+- Scouts are matched to imported records by BSA member ID, falling back on the whole name with or without a middle name.
+
+## Permission System, as built
+
+- With no users added, everyone can do everything. The first user added is always an Admin.
+- Viewers can look at and print everything, but editing controls are hidden or disabled.
+- The special password unlocks editing for the session and lets that user change their own level. Once a password is set, switching to an Editor or Admin profile needs it.
+- There is always at least one Admin.
+- This is stored on the device and stops accidental changes. It is not security against someone with access to the computer.
+
 ## Planned: Activity Requirements Check
 
 - Use each scout's imported activity log (past activities) to indicate whether they have met the participation/activity requirements for the first three ranks: **Tenderfoot**, **Second Class**, and **First Class**.

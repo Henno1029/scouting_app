@@ -36,31 +36,31 @@ class AppTheme {
   static const Color _eventTypeFallback = Color(0xFFEAEAE6);
 
   static Color eventTypeColor(String type) {
-    final normalized =
-        type.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final normalized = type.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     return _eventTypeColors[normalized] ?? _eventTypeFallback;
   }
 
   static ThemeData build() {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: scoutingBlue,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: scoutingBlue,
-      onPrimary: Colors.white,
-      primaryContainer: scoutingPaleBlue,
-      onPrimaryContainer: scoutingDarkBlue,
-      secondary: scoutingRed,
-      onSecondary: Colors.white,
-      secondaryContainer: scoutingLightTan,
-      onSecondaryContainer: scoutingDarkBlue,
-      tertiary: scoutingOlive,
-      onTertiary: Colors.white,
-      surface: scoutingLightTan,
-      onSurface: scoutingDarkGrey,
-      outline: scoutingDarkTan,
-      outlineVariant: scoutingTan,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: scoutingBlue,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: scoutingBlue,
+          onPrimary: Colors.white,
+          primaryContainer: scoutingPaleBlue,
+          onPrimaryContainer: scoutingDarkBlue,
+          secondary: scoutingRed,
+          onSecondary: Colors.white,
+          secondaryContainer: scoutingLightTan,
+          onSecondaryContainer: scoutingDarkBlue,
+          tertiary: scoutingOlive,
+          onTertiary: Colors.white,
+          surface: scoutingLightTan,
+          onSurface: scoutingDarkGrey,
+          outline: scoutingDarkTan,
+          outlineVariant: scoutingTan,
+        );
 
     final base = ThemeData(
       useMaterial3: true,
@@ -93,23 +93,17 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: scoutingBlue,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: scoutingBlue,
-        ),
+        style: TextButton.styleFrom(foregroundColor: scoutingBlue),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: scoutingBlue,
           side: const BorderSide(color: scoutingBlue),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(

@@ -62,13 +62,15 @@ class AdvancementService {
   /// Earned advancement grouped by [AdvancementEntry.type]; requirement-level
   /// rows are excluded so the list stays readable.
   static Future<List<AdvancementEntry>> importedAdvancements(
-      String scoutName) async {
+    String scoutName,
+  ) async {
     return (await AdvancementIndex.load()).advancements(scoutName);
   }
 
   /// The individual requirement-completion rows for partially finished badges.
   static Future<List<AdvancementEntry>> importedRequirements(
-      String scoutName) async {
+    String scoutName,
+  ) async {
     return (await AdvancementIndex.load()).requirements(scoutName);
   }
 
@@ -97,62 +99,102 @@ class AdvancementService {
 /// The imported advancement data, read once and grouped by scout. Reading it is
 /// slow for a large troop, so anything looking up several scouts should load one
 /// of these and share it.
+///
+/// A scout's records are found by BSA member ID when both sides have one.
+/// Otherwise the whole name must match, with or without a middle name, so one
+/// scout's name being part of another's (Jon Reed and Jon Reedy) doesn't mix
+/// their records up.
 class AdvancementIndex {
-  AdvancementIndex._(this._byName);
+  AdvancementIndex._(this._byId, this._byName);
 
+  final Map<String, List<AdvancementEntry>> _byId;
   final Map<String, List<AdvancementEntry>> _byName;
+
+  /// Name forms to match on: the whole name, and first plus last.
+  static Set<String> nameKeys(String first, String middle, String last) => {
+    AdvancementService._normalized('$first $middle $last'),
+    AdvancementService._normalized('$first $last'),
+  }..remove('');
+
+  /// The same name forms, from a name written as one string.
+  static Set<String> nameKeysOf(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    return {
+      AdvancementService._normalized(name),
+      if (parts.length > 2)
+        AdvancementService._normalized('${parts.first} ${parts.last}'),
+    }..remove('');
+  }
 
   static Future<AdvancementIndex> load() async {
     final rows = await CsvImportService.load('import_advancement');
+    final byId = <String, List<AdvancementEntry>>{};
     final byName = <String, List<AdvancementEntry>>{};
-    final keys = <String, String>{};
+    final keys = <String, Set<String>>{};
     for (final row in rows) {
       final title = (row['advancement'] ?? '').toString().trim();
       final type = (row['advancementType'] ?? '').toString().trim();
       if (title.isEmpty || type.isEmpty) continue;
-      final name =
-          '${row['firstName'] ?? ''} ${row['middleName'] ?? ''} ${row['lastName'] ?? ''}';
-      final key =
-          keys.putIfAbsent(name, () => AdvancementService._normalized(name));
-      if (key.isEmpty) continue;
-      byName.putIfAbsent(key, () => []).add(AdvancementEntry(
-            type: type,
-            title: title,
-            version: (row['version'] ?? '').toString().trim(),
-            date: (row['dateCompleted'] ?? '').toString().trim(),
-            approved: AdvancementService._flag(row['approved']),
-            awarded: AdvancementService._flag(row['awarded']),
-          ));
+      final first = (row['firstName'] ?? '').toString();
+      final middle = (row['middleName'] ?? '').toString();
+      final last = (row['lastName'] ?? '').toString();
+      final entry = AdvancementEntry(
+        type: type,
+        title: title,
+        version: (row['version'] ?? '').toString().trim(),
+        date: (row['dateCompleted'] ?? '').toString().trim(),
+        approved: AdvancementService._flag(row['approved']),
+        awarded: AdvancementService._flag(row['awarded']),
+      );
+      final id = (row['memberId'] ?? '').toString().trim();
+      if (id.isNotEmpty) byId.putIfAbsent(id, () => []).add(entry);
+      final names = keys.putIfAbsent(
+        '$first|$middle|$last',
+        () => nameKeys(first, middle, last),
+      );
+      for (final key in names) {
+        byName.putIfAbsent(key, () => []).add(entry);
+      }
     }
-    return AdvancementIndex._(byName);
+    return AdvancementIndex._(byId, byName);
   }
 
-  static bool _sameScout(String a, String b) =>
-      a == b ||
-      (a.length >= 6 && a.contains(b)) ||
-      (b.length >= 6 && b.contains(a));
-
-  List<AdvancementEntry> _entriesFor(String scoutName) {
-    final wanted = AdvancementService._normalized(scoutName);
-    if (wanted.isEmpty) return const [];
-    return [
-      for (final entry in _byName.entries)
-        if (_sameScout(wanted, entry.key)) ...entry.value,
-    ];
+  List<AdvancementEntry> _entriesFor(String scoutName, String memberId) {
+    final id = memberId.trim();
+    if (id.isNotEmpty && _byId.containsKey(id)) return _byId[id]!;
+    // One record can sit under both name forms, so collect each only once.
+    final found = <AdvancementEntry>[];
+    final seen = Set<AdvancementEntry>.identity();
+    for (final key in nameKeysOf(scoutName)) {
+      for (final entry in _byName[key] ?? const <AdvancementEntry>[]) {
+        if (seen.add(entry)) found.add(entry);
+      }
+    }
+    return found;
   }
 
-  List<AdvancementEntry> advancements(String scoutName) =>
-      AdvancementService._dedupe(_entriesFor(scoutName)
-          .where((entry) => !entry.isRequirement)
-          .toList());
+  List<AdvancementEntry> advancements(
+    String scoutName, {
+    String memberId = '',
+  }) => AdvancementService._dedupe(
+    _entriesFor(
+      scoutName,
+      memberId,
+    ).where((entry) => !entry.isRequirement).toList(),
+  );
 
-  List<AdvancementEntry> requirements(String scoutName) =>
-      AdvancementService._dedupe(_entriesFor(scoutName)
-          .where((entry) => entry.isRequirement)
-          .toList());
+  List<AdvancementEntry> requirements(
+    String scoutName, {
+    String memberId = '',
+  }) => AdvancementService._dedupe(
+    _entriesFor(
+      scoutName,
+      memberId,
+    ).where((entry) => entry.isRequirement).toList(),
+  );
 
-  String? rank(String scoutName) {
-    final earned = advancements(scoutName)
+  String? rank(String scoutName, {String memberId = ''}) {
+    final earned = advancements(scoutName, memberId: memberId)
         .where((entry) => entry.isRank)
         .map((entry) => AdvancementService.rankFromTitle(entry.title))
         .toSet();

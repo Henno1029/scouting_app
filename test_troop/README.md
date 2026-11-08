@@ -39,11 +39,11 @@ Then open **Branding & Patrols** to set a troop name, such as `Troop 9999`, so i
 | Oliver Hayes | Star | Raven | Star, Life service hours open |
 | Charlotte Rivera | Life | Raven | Life, nothing left to complete at events |
 | Henry Vance | Eagle | Raven | Eagle, every section empty |
-| Jon Reed | Tenderfoot | None | No patrol. Name is contained in Jon Reedy, showing the known name-matching bug |
-| Jon Reedy | Scout | Fox | Name contains Jon Reed, showing the known name-matching bug |
+| Jon Reed | Tenderfoot | None | No patrol. Name is part of the name Jon Reedy, but their records stay separate |
+| Jon Reedy | Scout | Fox | Name contains the name Jon Reed, but their records stay separate |
 | Owen Brooks | Scout (from import) | None | Not on the roster, created by the advancement import |
 
-The roster also lists position, birth date, phone, email and parent details. The app doesn't store these yet, but they're there for filling in the Scout Planning Worksheet.
+The roster also lists birth dates, which the app imports to show ages and Eagle deadlines. Position, phone, email and parent details aren't stored yet, but they're there for filling in the Scout Planning Worksheet.
 
 Requirement records with a blank completion date count as not done, so those requirements should still be listed.
 
@@ -69,6 +69,15 @@ Requirement records with a blank completion date count as not done, so those req
 - Press **Print out Statistics** and choose January 1, 2026. It should show 2 campouts from the activity report (Fall Camp and Summer Camp), 2 service projects, and each scout's ranks and merit badges from 2026.
 - Run it again from January 1, 2023 to see much bigger numbers and the older Winter Overnight campout.
 
+**New tools**
+- **Scout Page, open a scout:** check the progress card. Noah should show his Second Class progress, Isabella her merit badges toward Star, and everyone their Eagle-required badges and age.
+- **Calendar, tap an event in the month list:** that opens Event Detail. On **Winter Camp at Test Lake**, tick a few scouts and press Save attendance. Then print Statistics from today's date and those nights appear.
+- **Merit Badge Planner:** tap a few Eagle-required chips, such as Swimming and First Aid, to see who still needs each.
+- **Ask Your Troop**, with Ollama running: try "Who still needs Camping?" or "Who is closest to their next rank?"
+- **Statistics:** check the patrol leaderboard near the top.
+- **Upload Data, Backup and restore:** save a backup, delete a scout, then restore it.
+- **Users & Permissions**, the person icon on the home screen: add yourself as Admin, then add a Viewer and switch to them. Editing buttons should disappear. Set a special password and use it to unlock.
+
 **Everything else**
 - **Scout Page:** open a scout to see ranks, merit badges and requirement progress. Edit a patrol or clear one.
 - **Event Page:** try month and year views, the type filter, editing, deleting, and the year PDF.
@@ -76,7 +85,5 @@ Requirement records with a blank completion date count as not done, so those req
 
 ## Known problems this troop will show
 
-- **Jon Reed and Jon Reedy share records.** Names are matched loosely, so one name contained in another counts as the same scout. Jon Reed will appear to have Jon Reedy's Tenderfoot records.
-- **Renaming a scout** disconnects their advancement records, because records are matched by name.
 - **The Advancement Record (IAR) import isn't connected** to its parser, so no sample is included for it.
 - **A plain date, title and type file won't import as a Program Calendar.** Use the grid file above.
